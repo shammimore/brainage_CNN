@@ -2,27 +2,15 @@
 
 # %% External package import
 
+from pathlib import Path
 import torch
-import random
-import numpy as np
 
 # %% Internal package import
 
-from brainage.models.architectures import SFCN
+from brainage.models.model_classes import SFCNModel
+from brainage.tools import random_seed
 
 # %% Class definition
-
-
-def random_seed(seed_value, device):
-    """Set the random seed."""
-    np.random.seed(seed_value)  # cpu vars
-    torch.manual_seed(seed_value)  # cpu  vars
-    random.seed(seed_value)  # Python
-    if device == "cuda:0":
-        torch.cuda.manual_seed(seed_value)
-        torch.cuda.manual_seed_all(seed_value)  # gpu vars
-        torch.backends.cudnn.deterministic = True   # needed
-        torch.backends.cudnn.benchmark = False
 
 
 class DataModelPredictor():
@@ -64,6 +52,9 @@ class DataModelPredictor():
         # Get the csv data
         self.raw_data = self.data_loader.get_data('raw')
 
+        # Convert the 
+        pretrained_weights = Path(pretrained_weights)
+
         # Check if cuda is available
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -74,12 +65,15 @@ class DataModelPredictor():
         image_label_generator = self.data_preprocessor.preprocess(
             self.data_loader.get_images(which='train'),
             self.data_loader.get_age_values(which='train'))
-        
-        print(next(image_label_generator))
-        
-        # for image_data, age_value in image_label_generator:
-        #     print('image_data', image_data)
 
-        # Load the model architecture
-        # which model to use
-        # model = SFCN(pretrained_weights=pretrained_weights, device=device, age_range=age_range)
+        # Initialize the prediction model
+        architectures = {'sfcn': SFCNModel}
+        model = architectures[self.architecture](pretrained_weights, device)
+
+        if pretrained_weights.name == 'run_20190719_00_epoch_best_mae.p' or pretrained_weights.name == 'run_20190914_10_epoch_best_mae.p':
+            model.architecture.load_state_dict(torch.load(pretrained_weights, map_location=torch.device(device)))
+        else:
+            model.load_state_dict(torch.load(pretrained_weights, map_location=torch.device(device)))
+
+        for param_tensor in model.state_dict():
+            print(param_tensor, "\t", model.state_dict()[param_tensor].size())

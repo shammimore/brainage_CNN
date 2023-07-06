@@ -2,8 +2,13 @@
 
 # %% External package import
 
-from numpy import arange, array, floor, isscalar, ndim, zeros
+from numpy import arange, array, floor, isscalar, ndim, random, zeros
+from random import seed
 from scipy.stats import norm
+from torch import manual_seed as torch_manual_seed
+from torch.cuda import manual_seed as cuda_manual_seed
+from torch.cuda import manual_seed_all
+from torch.backends import cudnn
 
 # %% Function definitions
 
@@ -36,7 +41,7 @@ def crop_center(data, out_sp):
 
 def num2vect(x, bin_range, bin_step, sigma):
     """
-    v,bin_centers = number2vector(x,bin_range,bin_step,sigma)
+    v,bin_centers = number2vector(x,bin_range,bin_step,sigma).
 
     bin_range: (start, end), size-2 tuple
     bin_step: should be a divisor of |end-start|
@@ -79,3 +84,15 @@ def num2vect(x, bin_range, bin_step, sigma):
                     v[j, i] = cdfs[1] - cdfs[0]
 
             return v, bin_centers
+
+
+def random_seed(seed_value, device):
+    """Set the random seed."""
+    random.seed(seed_value)  # cpu vars
+    torch_manual_seed(seed_value)  # cpu  vars
+    seed(seed_value)  # Python
+    if device == "cuda:0":
+        cuda_manual_seed(seed_value)
+        manual_seed_all(seed_value)  # gpu vars
+        cudnn.deterministic = True   # needed
+        cudnn.benchmark = False
