@@ -11,6 +11,7 @@ bap = BrainAgePredictor(
     'ixi_fsl_bet_flirt_antsBC_train.csv',
     age_filter=[42, 82],
     image_dimensions=(160, 192, 160),
+    steps=('crop_center', 'normalize_image'),
     learning_rate=0.0001,
     number_of_epochs=10,
     batch_size=3,

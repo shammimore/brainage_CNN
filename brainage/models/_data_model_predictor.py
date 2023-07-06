@@ -74,12 +74,12 @@ class DataModelPredictor():
         image_label_generator = self.data_preprocessor.preprocess(
             self.data_loader.get_images(which='train'),
             self.data_loader.get_age_values(which='train'))
-
-        # Convert the numpy arrays to tensors
-        # image_data = torch.from_numpy(image_data)
-        # age_value = torch.from_numpy(np.array(age_value))
-
-        # print(image_data.shape, age_value.shape)
+        
+        print(next(image_label_generator))
+        
+        # for image_data, age_value in image_label_generator:
+        #     print('image_data', image_data)
 
         # Load the model architecture
-        #model = SFCN_mod(trained_weights=trained_weights, device=device, age_range=age_range)
+        # which model to use
+        # model = SFCN(pretrained_weights=pretrained_weights, device=device, age_range=age_range)

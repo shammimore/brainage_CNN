@@ -35,6 +35,7 @@ class BrainAgePredictor():
             data_path,
             age_filter,
             image_dimensions,
+            steps,
             learning_rate=0.0001,
             number_of_epochs=240,
             batch_size=3,
@@ -44,7 +45,8 @@ class BrainAgePredictor():
             pretrained_weights=None):
 
         self.data_loader = DataLoader(data_path, age_filter)
-        self.data_preprocessor = DataPreprocessor(image_dimensions)
+        self.data_preprocessor = DataPreprocessor(
+            image_dimensions, steps)
         self.data_model_predictor = DataModelPredictor(
             data_loader=self.data_loader,
             data_preprocessor=self.data_preprocessor,
