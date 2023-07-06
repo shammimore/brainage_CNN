@@ -99,6 +99,9 @@ class DataPreprocessor():
         for step in self.pipeline:
             image_data = step.transform(image_data, self.image_dimensions)
 
+        # Add dimension to the image data
+        image_data = expand_dims(image_data, axis=0)
+
         return image_data
 
     def preprocess(
@@ -137,9 +140,6 @@ class DataPreprocessor():
             """
             # Run the preprocessing pipeline
             image_data = self.run_pipeline(image)
-
-            # Add dimension to the image data
-            image_data = expand_dims(image_data, axis=0)
 
             return image_data
 

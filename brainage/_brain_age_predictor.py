@@ -95,3 +95,9 @@ class BrainAgePredictor():
             architecture=architecture,
             optimizer=optimizer,
             pretrained_weights=pretrained_weights)
+
+    def predict(
+            self,
+            image):
+        """Predict the brain age from an image."""
+        return self.data_model_predictor.run_prediction_model(image)

@@ -68,12 +68,18 @@ class DataModelPredictor():
 
         # Initialize the prediction model
         architectures = {'sfcn': SFCNModel}
-        model = architectures[self.architecture](pretrained_weights, device)
+        self.model = architectures[self.architecture](pretrained_weights, device)
 
         if pretrained_weights.name == 'run_20190719_00_epoch_best_mae.p' or pretrained_weights.name == 'run_20190914_10_epoch_best_mae.p':
-            model.architecture.load_state_dict(torch.load(pretrained_weights, map_location=torch.device(device)))
+            self.model.architecture.load_state_dict(torch.load(pretrained_weights, map_location=torch.device(device)))
         else:
-            model.load_state_dict(torch.load(pretrained_weights, map_location=torch.device(device)))
+            self.model.load_state_dict(torch.load(pretrained_weights, map_location=torch.device(device)))
 
-        for param_tensor in model.state_dict():
-            print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+        for param_tensor in self.model.state_dict():
+            print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
+
+    def run_prediction_model(
+            self,
+            image):
+        """Run the prediction model to yield a prediction value."""
+        return self.model.forward(image)

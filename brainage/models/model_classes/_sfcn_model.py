@@ -39,3 +39,9 @@ class SFCNModel(nn.Module):
         self.architecture = SFCN()
         self.architecture = nn.DataParallel(self.architecture)
 
+    def forward(
+            self,
+            image):
+        """Perform a forward pass through the model."""
+        out = self.architecture(image)
+        return out
