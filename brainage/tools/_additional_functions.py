@@ -39,6 +39,17 @@ def crop_center(data, out_sp):
     return data_crop
 
 
+def get_bin_centers(bin_range, bin_step):
+    """Get the bin centers for prediction."""
+    bin_start = bin_range[0]
+    bin_end = bin_range[1]
+    bin_length = bin_end - bin_start
+    bin_number = int(bin_length / bin_step)
+    bin_centers = bin_start + float(bin_step) / 2 + bin_step * arange(bin_number)
+
+    return bin_centers
+
+
 def num2vect(x, bin_range, bin_step, sigma):
     """
     v,bin_centers = number2vector(x,bin_range,bin_step,sigma).

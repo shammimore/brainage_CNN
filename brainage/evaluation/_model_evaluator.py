@@ -2,45 +2,60 @@
 
 # %% External package import
 
-
 # %% Internal package import
 
-from brainage.evaluation.metrics import MeanSquaredError, MeanAbsoluteError, Correlation
+from brainage.evaluation.metrics import (MeanSquaredError, MeanAbsoluteError,
+                                         Correlation)
 
 # %% Class definition
 
+
 class ModelEvaluator():
     """
+    Model performance evaluation class.
 
+    This class provides ...
+
+    Parameters
+    ----------
+    ...
+
+    Attributes
+    ----------
+    ...
+
+    Methods
+    -------
+    ...
     """
 
     def __init__(
-            self, 
+            self,
             metrics=()):
-        
+
         # Get the attributes from the argument
         self.metrics = metrics
 
         # Specify the performance metrics catalogue
-        self.metrics_catalogue = (MeanSquaredError, MeanAbsoluteError, Correlation)
+        self.metrics_catalogue = (MeanSquaredError, MeanAbsoluteError,
+                                  Correlation)
 
-        # Build the preprocessing pipeline
-        self.pipeline =  self.build()
+        # Construct the metrics list to compute
+        self.metrics_selection = self.select()
 
-    
-    def build(self):
-        """
-        """
+    def select(self):
+        """Select the metrics from the catalogue."""
         return tuple(metric_class()
-                     for metric_class in self.metrics_catalogue 
-                     for metric in self.metrics 
-                     if metric_class.label == metric )
-    
-    def run_metrics(
+                     for metric_class in self.metrics_catalogue
+                     for metric in self.metrics
+                     if metric_class.label == metric)
+
+    def compute_metrics(
             self,
-            true, predicted):
+            true_labels,
+            predicted_labels):
         """
-        Run all metrics.
+        Compute all metrics.
 
         Parameters
         ----------
@@ -52,23 +67,9 @@ class ModelEvaluator():
         image_data : ...
             ...
         """
+        # Compute the selected metrics and store the results as a dictionary
+        performance_metric = {metric.label: metric.compute(true_labels,
+                                                           predicted_labels)
+                              for metric in self.metrics_selection}
 
-        # Run the metric steps sequentially and store results in a dictionary
-        performance_metric = {}
-        for step in self.pipeline:
-            value = step.apply(true, predicted)
-            performance_metric[step.label] = value
-            
         return performance_metric
-
-
-
-
-
-
-
-
-
-    
-
-# %%

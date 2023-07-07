@@ -3,11 +3,9 @@
 # %% External package import
 
 from os.path import splitext
-import nibabel as nib
+from nibabel import load
 from pandas import cut, read_csv
 from sklearn.model_selection import StratifiedKFold
-
-# %% Internal package import
 
 # %% Class definition
 
@@ -118,7 +116,7 @@ class DataLoader():
             self,
             which='raw'):
         """Get the images."""
-        return (nib.load(path) for path in self.sets[which]['file_path'])
+        return (load(path) for path in self.sets[which]['file_path'])
 
     def set_file_path(
             self,

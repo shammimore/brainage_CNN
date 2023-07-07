@@ -2,7 +2,7 @@
 
 # %% External package import
 
-from numpy import array, expand_dims
+from numpy import expand_dims
 from torch import from_numpy
 
 # %% Internal package import
@@ -50,7 +50,7 @@ class DataPreprocessor():
     def __init__(
             self,
             image_dimensions,
-            steps=()):
+            steps):
 
         # Get the attributes from the argument
         self.image_dimensions = image_dimensions
@@ -102,7 +102,7 @@ class DataPreprocessor():
         # Add dimension to the image data
         image_data = expand_dims(image_data, axis=0)
 
-        return image_data
+        return from_numpy(image_data)
 
     def preprocess(
             self,
@@ -145,7 +145,7 @@ class DataPreprocessor():
 
         # Build the image-label pair generator
         image_label_generator = (
-            (from_numpy(preprocess_single_image(el[0])),
-             (el[1])) for el in zip(images, age_values))
+            (preprocess_single_image(el[0]), el[1])
+            for el in zip(images, age_values))
 
         return image_label_generator
