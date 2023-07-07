@@ -146,6 +146,6 @@ class DataPreprocessor():
         # Build the image-label pair generator
         image_label_generator = (
             (from_numpy(preprocess_single_image(el[0])),
-             from_numpy(array(el[1]))) for el in zip(images, age_values))
+             (el[1])) for el in zip(images, age_values))
 
         return image_label_generator

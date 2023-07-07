@@ -4,11 +4,13 @@
 
 from pathlib import Path
 import torch
+import numpy as np
 
 # %% Internal package import
 
 from brainage.models.model_classes import SFCNModel
-from brainage.tools import random_seed
+from brainage.tools import random_seed, num2vect
+from brainage.models.loss_functions import KLDivLoss
 
 # %% Class definition
 
@@ -56,10 +58,10 @@ class DataModelPredictor():
         pretrained_weights = Path(pretrained_weights)
 
         # Check if cuda is available
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
         # Define random seeds for reproducibility (if needed)
-        random_seed(200, device)
+        random_seed(200, self.device)
 
         # Get the image data and age values
         image_label_generator = self.data_preprocessor.preprocess(
@@ -68,18 +70,13 @@ class DataModelPredictor():
 
         # Initialize the prediction model
         architectures = {'sfcn': SFCNModel}
-        self.model = architectures[self.architecture](pretrained_weights, device)
-
-        if pretrained_weights.name == 'run_20190719_00_epoch_best_mae.p' or pretrained_weights.name == 'run_20190914_10_epoch_best_mae.p':
-            self.model.architecture.load_state_dict(torch.load(pretrained_weights, map_location=torch.device(device)))
-        else:
-            self.model.load_state_dict(torch.load(pretrained_weights, map_location=torch.device(device)))
-
-        for param_tensor in self.model.state_dict():
-            print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
+        
+        self.model = architectures[self.architecture](pretrained_weights, self.device)
+        # send the model on the device (CPU or GPU)
+        self.model.to(self.device)
 
     def run_prediction_model(
             self,
-            image):
+            image, label):
         """Run the prediction model to yield a prediction value."""
-        return self.model.forward(image)
+        return self.model.forward(image, label)
