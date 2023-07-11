@@ -2,6 +2,7 @@
 
 # %% External package import
 
+import itertools
 from numpy import exp
 from torch import as_tensor, device, float32, load, no_grad
 from torch.nn import Conv3d, DataParallel, init, Module
@@ -10,7 +11,8 @@ from torch.optim import Adam, SGD
 # %% Internal package import
 
 from brainage.models.architectures import SFCN
-from brainage.tools import get_bin_centers
+from brainage.tools import get_bin_centers, num2vect
+from brainage.models.loss_functions import KLDivLoss
 
 # %% Class definition
 
@@ -124,7 +126,88 @@ class SFCNModel(Module):
             number_of_epochs,
             batch_size):
         """Fit the SFCN model."""
-        print('This is where the fitting will be done - someday ...')
+        print('This is where the fitting will be done - someday ... someday is today')        
+        
+        def get_input(image_label_data):
+            bin_step = 1
+            sigma = 1
+            image = image_label_data[0]
+            label = image_label_data[1]
+
+            # Transforming the age to soft label (probability distribution)
+            # label = label.numpy().reshape(-1)
+            y, centers = num2vect(label, self.age_filter, bin_step, sigma) # probabilities, bin centers
+            y = as_tensor(y, dtype=float32, device=self.comp_device)
+
+            # Get the image shape
+            dims = image.shape
+            print('dims', dims)
+            c, d, h, w = image.shape 
+            b = 1 # remove once we load a batch
+            image = image.reshape(b, dims[0], dims[1], dims[2], dims[3]) # remove once we load a batch
+            image = as_tensor(image, dtype=float32, device=self.comp_device)
+            return image, y, centers
+
+        def get_output(y, centers, out):
+            out = out.detach().cpu().numpy()
+            y = y.cpu().numpy()
+            prob = exp(out)
+            pred = prob @ centers
+            print('prediction: ', pred)
+            return pred
+
+        def train(image):
+            print('Training mode')
+            b = 1
+            self.architecture.train()
+            self.optimizer.zero_grad()
+            output = self.architecture(image)
+            out = output[0].reshape([b, -1])
+            loss = KLDivLoss(out, y) 
+            loss.backward()
+            self.optimizer.step() 
+            # train_loss += loss.item()
+            return loss, out
+
+        def validate(image):
+            print('Evaluation mode')
+            b = 1
+            self.architecture.eval()
+            with no_grad():
+                output = self.architecture(image)
+            out = output[0].reshape([b, -1])
+            loss = KLDivLoss(out, y)
+            # val_loss += loss.item()
+            return loss, out
+        
+        # create training and validation data
+        train_generator, validate_generator = itertools.tee(data)
+        training_data = (sample for sample in train_generator 
+                        if sample[2] != 1)
+        validation_data = (sample for sample in validate_generator 
+                        if sample[2] == 1)
+             
+        
+        print('--CURRENT STATE: only runs for one epoch, probably because of the property of iterator')   
+        for epoch in range(number_of_epochs):
+            print('\n----Epoch number: %d------' %(epoch))
+            
+            # iterate over training data
+            for i, train_image_label in enumerate(training_data):
+                print('Sample number: %d' %(i))
+                image, y, centers = get_input(train_image_label)
+                loss, out = train(image)
+                pred = get_output(y, centers, out)
+                
+            # iterate over validation data
+            for i, validate_image_label in enumerate(validation_data): 
+                print('Sample number: %d' %(i))
+                image, y, centers = get_input(validate_image_label)
+                loss, out = validate(image)
+                pred = get_output(y, centers, out)
+            
+        
+
 
     def forward(
             self,

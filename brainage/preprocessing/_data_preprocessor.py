@@ -107,7 +107,8 @@ class DataPreprocessor():
     def preprocess(
             self,
             images,
-            age_values):
+            age_values,
+            folds):
         """
         Preprocess the images.
 
@@ -145,7 +146,7 @@ class DataPreprocessor():
 
         # Build the image-label pair generator
         image_label_generator = (
-            (preprocess_single_image(el[0]), el[1])
-            for el in zip(images, age_values))
+            (preprocess_single_image(el[0]), el[1], el[2])
+            for el in zip(images, age_values, folds))
 
         return image_label_generator

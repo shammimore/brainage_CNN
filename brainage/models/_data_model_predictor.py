@@ -82,7 +82,8 @@ class DataModelPredictor():
         # Get the image data and age values
         image_label_generator = data_preprocessor.preprocess(
             data_loader.get_images(which='train'),
-            data_loader.get_age_values(which='train'))
+            data_loader.get_age_values(which='train'),
+            data_loader.get_fold_numbers(which='train'))
 
         # Create a path object from the link to the pretrained weights
         pretrained_weights = Path(pretrained_weights)
