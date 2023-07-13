@@ -6,6 +6,8 @@ from os.path import splitext
 from nibabel import load
 from pandas import cut, read_csv
 from sklearn.model_selection import StratifiedKFold
+from warnings import filterwarnings
+filterwarnings("ignore")
 
 # %% Class definition
 
@@ -18,32 +20,34 @@ class DataLoader():
 
     Parameters
     ----------
-    data_path : ...
+    data_path : string
         ...
 
-    age_filter : ...
+    age_filter : list
         ...
 
     Attributes
     ----------
-    age_filter : ...
+    age_filter : list
         ...
 
-    sets : ...
+    sets : dict
         ...
 
     Methods
     -------
-    - ``add_fold_numbers()`` : ...
-    - ``split()`` : ...
-    - ``get_data(which)`` : ...
-    - ``get_images(which)`` : ...
-    - ``set_file_path(path, which)`` : ...
-    - ``get_age_values(which)`` : ...
-    - ``set_age_values(values, which)`` : ...
-    - ``get_fold_numbers(which)`` : ...
-    - ``set_fold_numbers(numbers, which)`` : ...
-    - ``save_data_to_file(path)`` : ...
+    - ``add_fold_numbers()`` : add a fold column for later \
+        train-validate-test splitting;
+    - ``split()`` : split into training and test data;
+    - ``get_data(which)`` : get the raw data;
+    - ``get_images(which)`` : get the images;
+    - ``set_file_path(path, which)`` : set the image paths;
+    - ``get_age_values(which)`` : get the age values;
+    - ``set_age_values(values, which)`` : set the age values;
+    - ``get_fold_numbers(which)`` : get the fold numbers;
+    - ``set_fold_numbers(numbers, which)`` : set the fold numbers;
+    - ``save_data_to_file(path)`` : write training and test subsets to csv \
+        files.
     """
 
     def __init__(
@@ -51,59 +55,86 @@ class DataLoader():
             data_path,
             age_filter):
 
+        print('\n\t Initializing the data loader ...')
+        print('\t\t >>> Age filter: {} <<<'.format(age_filter))
+
         # Get the age filter from the arguments
         self.age_filter = age_filter
 
-        # Load the csv file as a dataframe
-        self.sets = {'raw': read_csv(data_path, sep=','),
-                     'train': None,
-                     'test': None}
+        try:
 
-        # Check if age and file path are present as columns in the csv data
-        if not all(column in self.sets['raw'].columns
-                   for column in ('file_path', 'age')):
-            raise ValueError("File must contain image paths and age values!")
+            print('\t\t Reading and modifying the input data ...')
 
-        # Rename the values of file path
-        self.sets['raw']['file_path'] = self.sets[
-            'raw']['file_path'].str.replace(
-            '.images', 'brainage/data/datasets/images')
+            # Load the csv file as a dataframe
+            self.sets = {'raw': read_csv(data_path, sep=','),
+                         'train': None,
+                         'test': None}
 
-        # Select samples based on the site
-        self.sets['raw'] = self.sets['raw'][
-            self.sets['raw']['site'] == 'IXI/IOP']
+            # Check if age and file path are present as columns in the csv data
+            if not all(column in self.sets['raw'].columns
+                       for column in ('file_path', 'age')):
+                raise ValueError("File must contain image paths and age "
+                                 "values!")
 
-        # Select samples based on the given age range
-        self.sets['raw'] = self.sets['raw'][self.sets['raw']['age'].between(
-            age_filter[0], age_filter[1])]
+            # Rename the values of file path
+            self.sets['raw']['file_path'] = self.sets[
+                'raw']['file_path'].str.replace(
+                '.images', 'brainage/data/datasets/images')
 
-        # Sort data based on age
-        self.sets['raw'].sort_values(by='age', inplace=True, ignore_index=True)
+            # Select samples based on the site
+            self.sets['raw'] = self.sets['raw'][
+                self.sets['raw']['site'] == 'IXI/IOP']
 
-        # Add the fold column
-        self.add_fold_numbers()
+            # Select samples based on the given age range
+            self.sets['raw'] = self.sets['raw'][
+                self.sets['raw']['age'].between(age_filter[0], age_filter[1])]
 
-        # Split into training and test data
-        self.split()
+            # Sort data based on age
+            self.sets['raw'].sort_values(by='age', inplace=True,
+                                         ignore_index=True)
 
-        # Save training and test subsets to files
-        self.save_data_to_file(data_path)
+            # Add the fold column
+            self.add_fold_numbers()
+
+            # Split into training and test data
+            self.split()
+
+            # Save training and test subsets to files
+            self.save_data_to_file(data_path)
+
+        except ValueError:
+
+            # Create a dictionary with empty sets
+            self.sets = {'raw': None,
+                         'train': None,
+                         'test': None}
 
     def add_fold_numbers(self):
         """Add a fold column for later train-validate-test splitting."""
+        print('\t\t Adding the fold numbers ...')
+
+        # Initialize the stratified k-fold object
         skf = StratifiedKFold(n_splits=5)
+
+        # Generate age bins from the raw age values
         age_bins = cut(self.get_age_values('raw'), bins=5, precision=1,
                        labels=False)
 
-        for val, (_, validation_indices) in enumerate(skf.split(
+        # Loop over the bin splits
+        for val, (_, indices) in enumerate(skf.split(
                 self.sets['raw'], age_bins)):
-            self.sets['raw'].loc[validation_indices, 'fold'] = int(val)
 
-        self.sets['raw']['fold'] = self.sets['raw']['fold'].astype(int)
+            # Assign the fold numbers to the corresponding indices
+            self.sets['raw'].loc[indices, 'fold'] = int(val)
 
     def split(self):
         """Split into training and test data."""
+        print('\t\t Splitting into training and test data ...')
+
+        # Get the training data from all rows with fold number unequal to zero
         self.sets['train'] = self.sets['raw'][self.sets['raw']['fold'] != 0]
+
+        # Get the test data from all rows with fold number equal to zero
         self.sets['test'] = self.sets['raw'][self.sets['raw']['fold'] == 0]
 
     def get_data(
@@ -122,7 +153,7 @@ class DataLoader():
             self,
             path,
             which):
-        """Set the images."""
+        """Set the image paths."""
         self.sets[which]['file_path'] = path
 
     def get_age_values(
@@ -155,9 +186,14 @@ class DataLoader():
             self,
             path):
         """Write training and test subsets to csv files."""
-        name, extension = splitext(path)
-        train_path = ''.join((name, '_train', extension))
-        test_path = ''.join((name, '_test', extension))
+        print('\t\t Saving data subsets to files ...')
 
-        self.sets['train'].to_csv(train_path, index=False)
-        self.sets['test'].to_csv(test_path, index=False)
+        # Get the path name and the file extension
+        name, extension = splitext(path)
+
+        # Loop over the subset labels
+        for subset in ('train', 'test'):
+
+            # Save the subset as a csv file with the given file name
+            self.sets[subset].to_csv(''.join((name, '_', subset, extension)),
+                                     index=False)

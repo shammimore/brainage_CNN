@@ -2,7 +2,6 @@
 
 # %% External package import
 
-from pathlib import Path
 from torch import cuda, device
 
 # %% Internal package import
@@ -27,22 +26,22 @@ class DataModelPredictor():
     data_preprocessor : ...
         ...
 
-    learning_rate : ...
+    learning_rate : float
         ...
 
-    number_of_epochs : ...
+    number_of_epochs : int
         ...
 
-    batch_size : ...
+    batch_size : int
         ...
 
-    train_all_layers : ...
+    train_all_layers : bool
         ...
 
-    architecture : ...
+    architecture : string
         ...
 
-    optimizer : ...
+    optimizer : string
         ...
 
     pretrained_weights : ...
@@ -50,14 +49,24 @@ class DataModelPredictor():
 
     Attributes
     ----------
+    number_of_epochs : int
+        See `Parameters`.
+
+    batch_size : int
+        See `Parameters`.
+
+    data_generator : ...
+        ...
+
     model : ...
         ...
 
     Methods
     -------
-    - ``fit(data, number_of_epochs, batch_size)`` : ...
-    - ``tune_hyperparameters()`` : ...
-    - ``predict(image)`` : ...
+    - ``fit()`` : fit the prediction model;
+    - ``tune_hyperparameters()`` : tune the model hyperparameters;
+    - ``predict(image)`` : predict the brain age from an image (or \
+        multiple images in parallel).
     """
 
     def __init__(
@@ -72,6 +81,14 @@ class DataModelPredictor():
             optimizer,
             pretrained_weights):
 
+        print('\n\t Initializing the data model predictor ...')
+        print('\t\t >>> Learning rate: {} - Number of epochs: {} - '
+              'Batch size: {} - Train all layers: {} - Architecture: "{}" - '
+              'Optimizer: "{}" - Pretrained weights: "{}" <<<'
+              .format(learning_rate, number_of_epochs, batch_size,
+                      train_all_layers, architecture, optimizer,
+                      pretrained_weights))
+
         # Check if cuda is available
         comp_device = device(
             'cuda:0' if cuda.is_available() else 'cpu')
@@ -79,14 +96,22 @@ class DataModelPredictor():
         # Define random seeds for reproducibility (if needed)
         random_seed(200, comp_device)
 
-        # Get the image data and age values
-        image_label_generator = data_preprocessor.preprocess(
-            data_loader.get_images(which='train'),
-            data_loader.get_age_values(which='train'),
-            data_loader.get_fold_numbers(which='train'))
+        # Get the attributes from the arguments
+        self.number_of_epochs = number_of_epochs
+        self.batch_size = batch_size
 
-        # Create a path object from the link to the pretrained weights
-        pretrained_weights = Path(pretrained_weights)
+        try:
+
+            # Create a generator for the training data (image, age, fold)
+            self.data_generator = data_preprocessor.preprocess(
+                data_loader.get_images(which='train'),
+                data_loader.get_age_values(which='train'),
+                data_loader.get_fold_numbers(which='train'))
+
+        except AttributeError:
+
+            # Create an empty generator
+            self.data_generator = iter(())
 
         # Initialize the prediction model
         architectures = {'sfcn': SFCNModel}
@@ -115,16 +140,18 @@ class DataModelPredictor():
         # Send the model to the device (CPU or GPU)
         self.model.to(comp_device)
 
-        # Fit the model
-        self.fit(image_label_generator, number_of_epochs, batch_size)
-
-    def fit(
-            self,
-            data,
-            number_of_epochs,
-            batch_size):
+    def fit(self):
         """Fit the prediction model."""
-        self.model.fit(data, number_of_epochs, batch_size)
+        # Check if the data generator is not available
+        if not hasattr(self, 'data_generator'):
+
+            raise AttributeError("Please specify the input data with the "
+                                 "'data_path' argument, otherwise model "
+                                 "fitting is not possible.")
+
+        # Call the model's specific fit method
+        self.model.fit(self.data_generator, self.number_of_epochs,
+                       self.batch_size)
 
     def tune_hyperparameters(self):
         """Tune the model hyperparameters."""
@@ -133,5 +160,6 @@ class DataModelPredictor():
     def predict(
             self,
             image):
-        """Generate an age prediction on a single image."""
+        """Predict the brain age from an image (or multiple images in \
+            parallel)."""
         return self.model.forward(image)

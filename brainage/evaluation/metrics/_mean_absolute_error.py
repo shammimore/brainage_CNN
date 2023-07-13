@@ -15,21 +15,34 @@ class MeanAbsoluteError():
 
     Attribute
     ---------
-    ...
+    label : string
+        ...
 
     Methods
     -------
-    ...
+    - ``compute(true_labels, predicted_labels)`` : compute the mean absolute \
+        error.
     """
 
     label = 'MAE'
-
-    def __init__(self):
-        return
 
     def compute(
             self,
             true_labels,
             predicted_labels):
-        """Compute the mean absolute error."""
+        """
+        Compute the mean absolute error.
+
+        Parameters
+        ----------
+        true_labels : ...
+            ...
+
+        predicted_labels : ...
+            ...
+
+        Returns
+        -------
+        ...
+        """
         return mean_absolute_error(true_labels, predicted_labels)

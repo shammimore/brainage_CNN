@@ -15,21 +15,34 @@ class MeanSquaredError():
 
     Attributes
     ----------
-    ...
+    label : string
+        ...
 
     Methods
     -------
-    ...
+    - ``compute(true_labels, predicted_labels)`` : compute the mean squared \
+        error.
     """
 
     label = 'MSE'
-
-    def __init__(self):
-        return
 
     def compute(
             self,
             true_labels,
             predicted_labels):
-        """Compute the mean squared error."""
+        """
+        Compute the mean squared error.
+
+        Parameters
+        ----------
+        true_labels : ...
+            ...
+
+        predicted_labels : ...
+            ...
+
+        Returns
+        -------
+        ...
+        """
         return mean_squared_error(true_labels, predicted_labels)

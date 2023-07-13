@@ -3,7 +3,6 @@
 # %% External package import
 
 from numpy import expand_dims
-from torch import from_numpy
 
 # %% Internal package import
 
@@ -20,7 +19,7 @@ class DataPreprocessor():
 
     Parameters
     ----------
-    image_dimensions : ...
+    image_dimensions : tuple
         ...
 
     steps : tuple
@@ -28,23 +27,20 @@ class DataPreprocessor():
 
     Attributes
     ----------
-    image_dimensions : ...
+    image_dimensions : tuple
         ...
 
     steps : tuple
         See `Parameters`.
 
-    steps_catalogue : tuple
-        ...
-
-    pipeline : ...
+    pipeline : tuple
         ...
 
     Methods
     -------
-    - ``build()`` : ...
-    - ``run_pipeline(image)`` : ...
-    - ``preprocess(images, age_values)`` : ...
+    - ``build()`` : build the preprocessing pipeline;
+    - ``run_pipeline(image)`` : run the preprocessing pipeline;
+    - ``preprocess(images, age_values)`` : preprocess the images.
     """
 
     def __init__(
@@ -52,27 +48,37 @@ class DataPreprocessor():
             image_dimensions,
             steps):
 
-        # Get the attributes from the argument
+        print('\n\t Initializing the data preprocessor ...')
+        print('\t\t >>> Image dimensions: {} - Steps: {} <<<'.format(
+            image_dimensions, steps))
+
+        # Get the attributes from the arguments
         self.image_dimensions = image_dimensions
         self.steps = steps
 
-        # Specify the preprocessing steps catalogue
-        self.steps_catalogue = (ImageCropper, ImageNormalizer)
-
         # Build the preprocessing pipeline
-        self.pipeline = self.build()
+        self.pipeline = self.build((ImageCropper, ImageNormalizer))
 
-    def build(self):
+    def build(
+            self,
+            steps_catalogue):
         """
         Build the preprocessing pipeline.
+
+        Parameters
+        ----------
+        steps_catalogue : tuple
+            ...
 
         Returns
         -------
         tuple
             ...
         """
+        print('\t\t Building the preprocessing pipeline ...')
+
         return tuple(step_class()
-                     for step_class in self.steps_catalogue
+                     for step_class in steps_catalogue
                      for step in self.steps
                      if step_class.label == step)
 
@@ -89,7 +95,7 @@ class DataPreprocessor():
 
         Returns
         -------
-        image_data : ...
+        image_data : ndarray
             ...
         """
         # Extract the image data
@@ -99,10 +105,10 @@ class DataPreprocessor():
         for step in self.pipeline:
             image_data = step.transform(image_data, self.image_dimensions)
 
-        # Add dimension to the image data
+        # Add a dimension to the image data
         image_data = expand_dims(image_data, axis=0)
 
-        return from_numpy(image_data)
+        return image_data
 
     def preprocess(
             self,
@@ -120,11 +126,16 @@ class DataPreprocessor():
         age_values : ...
             ...
 
+        folds : ...
+            ...
+
         Returns
         -------
         image_label_generator : ...
             ...
         """
+        print('\t\t Preprocessing the images ...')
+
         def preprocess_single_image(image):
             """
             Preprocess a single image file.
@@ -144,7 +155,7 @@ class DataPreprocessor():
 
             return image_data
 
-        # Build the image-label pair generator
+        # Build the image-label-fold triplet generator
         image_label_generator = (
             (preprocess_single_image(el[0]), el[1], el[2])
             for el in zip(images, age_values, folds))

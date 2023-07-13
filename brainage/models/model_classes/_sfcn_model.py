@@ -2,8 +2,9 @@
 
 # %% External package import
 
-import itertools
-from numpy import exp
+from itertools import tee
+from numpy import exp, expand_dims, vstack
+from pathlib import Path
 from torch import as_tensor, device, float32, load, no_grad
 from torch.nn import Conv3d, DataParallel, init, Module
 from torch.optim import Adam, SGD
@@ -11,8 +12,8 @@ from torch.optim import Adam, SGD
 # %% Internal package import
 
 from brainage.models.architectures import SFCN
-from brainage.tools import get_bin_centers, num2vect
 from brainage.models.loss_functions import KLDivLoss
+from brainage.tools import get_batch, get_bin_centers, num2vect
 
 # %% Class definition
 
@@ -37,21 +38,30 @@ class SFCNModel(Module):
     Attributes
     ----------
     comp_device : ...
-        ...
+        See `Parameters`.
 
-    age_filter : ...
-        ...
+    age_filter : list
+        See `Parameters`.
 
     architecture : ...
         ...
 
+    parameters : ...
+        ...
+
+    tracker : dict
+        ...
+
     Methods
     -------
-    - ``freeze_inner_layers()`` : ...
-    - ``adapt_output_layer(age_range)`` : ...
-    - ``set_optimizer(optimizer, learning_rate)`` : ...
-    - ``fit(data, number_of_epochs, batch_size)`` : ...
-    - ``forward(image)`` : ...
+    - ``freeze_inner_layers()`` : freeze the parameters of the input and \
+        hidden layers;
+    - ``adapt_output_layer(age_range)`` : adapt the output layer for the age \
+        range;
+    - ``set_optimizer(optimizer, learning_rate)`` : set the optimizer for the \
+        model training;
+    - ``fit(data, number_of_epochs, batch_size)`` : fit the SFCN model;
+    - ``forward(image)`` : perform a single forward pass through the model.
     """
 
     def __init__(
@@ -76,11 +86,15 @@ class SFCNModel(Module):
         # Load the pretrained weights if applicable
         if pretrained_weights:
             self.architecture.load_state_dict(load(
-                pretrained_weights, map_location=device(comp_device)))
+                Path(pretrained_weights), map_location=device(comp_device)))
+
+        # Initialize the tracking dictionary
+        self.tracker = {}
 
     def freeze_inner_layers(self):
         """Freeze the parameters of the input and hidden layers."""
-        # Get all and the output layer parameters
+        print('\t\t Freezing the parameters of input and hidden layers ...')
+        # Get all and only the output layer parameters
         all_params = self.parameters()
         out_params = self.architecture.module.classifier.conv_6.parameters()
 
@@ -95,17 +109,45 @@ class SFCNModel(Module):
     def adapt_output_layer(
             self,
             age_range):
-        """Adapt the output layer for the age range."""
-        self.module.classifier.conv_6 = Conv3d(64, age_range, padding=0,
-                                               kernel_size=1)
-        init.kaiming_normal_(self.module.classifier.conv_6.weight)
+        """
+        Adapt the output layer for the age range.
+
+        Parameters
+        ----------
+        age_range : ...
+            ...
+        """
+        print('\t\t Adapting the output layer for the age range ...')
+
+        # Rescale the output layer to the age range
+        self.architecture.module.classifier.conv_6 = Conv3d(64,
+                                                            age_range,
+                                                            padding=0,
+                                                            kernel_size=1)
+
+        # Initialize the output layer's weights with He
+        init.kaiming_normal_(self.architecture.module.classifier.conv_6.weight)
 
     def set_optimizer(
             self,
             optimizer,
             learning_rate):
-        """Set the optimizer for the model training."""
+        """
+        Set the optimizer for the model training.
+
+        Parameters
+        ----------
+        optimizer : string
+            ...
+
+        learning_rate : float
+            ...
+        """
+        print('\t\t Setting the optimizer ...')
+        # Check if the optimizer is 'adam'
         if optimizer == 'adam':
+
+            # Initialize the Adam optimizer
             self.optimizer = Adam(filter(lambda p: p.requires_grad,
                                          self.parameters()),
                                   lr=learning_rate,
@@ -113,7 +155,11 @@ class SFCNModel(Module):
                                   eps=1e-08,
                                   weight_decay=0,
                                   amsgrad=False)
+
+        # Else, check if the optimizer is 'sgd'
         elif optimizer == 'sgd':
+
+            # Initialize the SGD optimizer
             self.optimizer = SGD(filter(lambda p: p.requires_grad,
                                         self.parameters()),
                                  lr=learning_rate,
@@ -125,123 +171,203 @@ class SFCNModel(Module):
             data,
             number_of_epochs,
             batch_size):
-        """Fit the SFCN model."""
-        print('This is where the fitting will be done - someday ... someday is today')        
-        
-        def get_input(image_label_data):
-            bin_step = 1
-            sigma = 1
-            image = image_label_data[0]
-            label = image_label_data[1]
+        """
+        Fit the SFCN model.
 
-            # Transforming the age to soft label (probability distribution)
-            # label = label.numpy().reshape(-1)
-            y, centers = num2vect(label, self.age_filter, bin_step, sigma) # probabilities, bin centers
-            y = as_tensor(y, dtype=float32, device=self.comp_device)
+        Parameters
+        ----------
+        data : ...
+            ...
 
-            # Get the image shape
-            dims = image.shape
-            print('dims', dims)
-            c, d, h, w = image.shape 
-            b = 1 # remove once we load a batch
-            image = image.reshape(b, dims[0], dims[1], dims[2], dims[3]) # remove once we load a batch
-            image = as_tensor(image, dtype=float32, device=self.comp_device)
-            return image, y, centers
+        number_of_epochs : int
+            ...
 
-        def get_output(y, centers, out):
-            out = out.detach().cpu().numpy()
-            y = y.cpu().numpy()
-            prob = exp(out)
-            pred = prob @ centers
-            print('prediction: ', pred)
-            return pred
+        batch_size : int
+            ...
+        """
+        print('')
+        print('\t Fitting the SFCN model to the data ...')
 
-        def train(image):
-            print('Training mode')
-            b = 1
+        def get_input(batch):
+            """Get the images, soft labels and centers from a batch."""
+            # Extract the images and labels from the batch
+            images = vstack([sample[0] for sample in batch])
+            labels = [sample[1] for sample in batch]
+
+            # Transform the labels to soft labels (probabilities) with centers
+            soft_labels, centers = num2vect(x=labels,
+                                            bin_range=self.age_filter,
+                                            bin_step=1, sigma=1)
+
+            # Convert the soft labels to tensors
+            soft_labels = as_tensor(soft_labels, dtype=float32,
+                                    device=self.comp_device)
+
+            # Add a dimension to the images
+            images = expand_dims(images, axis=1)
+
+            # Convert the images to tensors
+            images = as_tensor(images, dtype=float32, device=self.comp_device)
+
+            return images, soft_labels, centers
+
+        def get_output(centers, model_output):
+            """Get the age prediction from the model output."""
+            # Shift the model output to cpu and convert to numpy
+            model_output = model_output.detach().cpu().numpy()
+
+            # Take the exponential to convert into a probability (sigmoid)
+            probability = exp(model_output)
+
+            # Calculate the prediction value as the discrete expected value
+            prediction = probability @ centers
+
+            return prediction
+
+        def train(image, soft_labels):
+
+            # Set the architecture into training mode
             self.architecture.train()
+
+            # Clear all gradients
             self.optimizer.zero_grad()
-            output = self.architecture(image)
-            out = output[0].reshape([b, -1])
-            loss = KLDivLoss(out, y) 
-            loss.backward()
-            self.optimizer.step() 
-            # train_loss += loss.item()
-            return loss, out
 
-        def validate(image):
-            print('Evaluation mode')
-            b = 1
+            # Get the model output for the image
+            model_output = self.architecture(image)
+
+            # Reshape the model output
+            model_output = model_output[0].reshape([image.shape[0], -1])
+
+            # Calculate the KL divergence loss
+            training_loss = KLDivLoss(model_output, soft_labels)
+
+            # Propagate the loss back to the parameters
+            training_loss.backward()
+
+            # Perform a single parameter update
+            self.optimizer.step()
+
+            return training_loss, model_output
+
+        def validate(image, soft_labels):
+
+            # Set the architecture into evaluation mode
             self.architecture.eval()
-            with no_grad():
-                output = self.architecture(image)
-            out = output[0].reshape([b, -1])
-            loss = KLDivLoss(out, y)
-            # val_loss += loss.item()
-            return loss, out
-        
-        # create training and validation data
-        train_generator, validate_generator = itertools.tee(data)
-        training_data = (sample for sample in train_generator 
-                        if sample[2] != 1)
-        validation_data = (sample for sample in validate_generator 
-                        if sample[2] == 1)
-             
-        
-        print('--CURRENT STATE: only runs for one epoch, probably because of the property of iterator')   
-        for epoch in range(number_of_epochs):
-            print('\n----Epoch number: %d------' %(epoch))
-            
-            # iterate over training data
-            for i, train_image_label in enumerate(training_data):
-                print('Sample number: %d' %(i))
-                image, y, centers = get_input(train_image_label)
-                loss, out = train(image)
-                pred = get_output(y, centers, out)
-                
-            # iterate over validation data
-            for i, validate_image_label in enumerate(validation_data): 
-                print('Sample number: %d' %(i))
-                image, y, centers = get_input(validate_image_label)
-                loss, out = validate(image)
-                pred = get_output(y, centers, out)
-            
-        
 
+            # Get the model output with gradient calculation disabled
+            with no_grad():
+                model_output = self.architecture(image)
+
+            # Reshape the model output
+            model_output = model_output[0].reshape([image.shape[0], -1])
+
+            # Calculate the KL divergence loss
+            validation_loss = KLDivLoss(model_output, soft_labels)
+
+            return validation_loss, model_output
+
+        # Create training and validation generators for all epochs
+        data_generators = tee(data, number_of_epochs*2)
+
+        # Loop over the number of epochs
+        for epoch in range(number_of_epochs):
+
+            print('\n\t ------ Epoch %d ------\n' % (epoch))
+
+            # Get training and validation data by filtering the fold number
+            training_data = (el for el in data_generators[epoch*2]
+                             if el[2] != 1)
+            validation_data = (el for el in data_generators[epoch*2+1]
+                               if el[2] == 1)
+
+            # Iterate over the training data batch-wise
+
+            proceed = True  # Continuation flag
+            counter = 1  # Batch counter
+
+            while proceed:
+
+                # Get a new batch from the training data generator
+                batch, proceed = get_batch(training_data, batch_size)
+
+                # Check if the batch is non-empty
+                if len(batch) > 0:
+
+                    # Get the model input
+                    images, soft_labels, centers = get_input(batch)
+
+                    # Perform a single training step
+                    training_loss, model_output = train(images, soft_labels)
+
+                    # Get the training prediction
+                    training_prediction = get_output(centers, model_output)
+
+                    # Print a message after the training epoch
+                    print('\t Training - Batch: {} - Loss: {} - '
+                          'Prediction: {}'
+                          .format(counter, training_loss, training_prediction))
+                    counter += 1
+
+            # Iterate over the validation data batch-wise
+
+            proceed = True  # Continuation flag
+            counter = 1  # Batch counter
+
+            while proceed:
+
+                # Get a new batch from the validation data generator
+                batch, proceed = get_batch(validation_data, batch_size)
+
+                # Check if the batch is non-empty
+                if len(batch) > 0:
+
+                    # Get the model input
+                    image, soft_labels, centers = get_input(batch)
+
+                    # Perform a single validation step
+                    validation_loss, model_output = validate(image,
+                                                             soft_labels)
+
+                    # Get the validation prediction
+                    validation_prediction = get_output(centers, model_output)
+
+                    # Print a message after the validation epoch
+                    print('\t Validation - Batch: {} - Loss: {} - '
+                          'Prediction: {}'
+                          .format(counter, validation_loss,
+                                  validation_prediction))
+                    counter += 1
 
     def forward(
             self,
             image):
         """Perform a single forward pass through the model."""
-        # Get the bin centers
-        centers = get_bin_centers(self.age_filter, 1)
-
         # Get the image shape
-        dims = image.shape
+        shape = image.shape
 
         # Reshape the image to 5D (with batch size 1)
-        image = image.reshape(1, dims[0], dims[1], dims[2], dims[3])
+        image = image.reshape(1, shape[0], shape[1], shape[2], shape[3])
 
         # Convert the image to a tensor
         image = as_tensor(image, dtype=float32, device=self.comp_device)
 
-        # Set the architecture into evaluation mode (affects BatchNorm)
+        # Set the architecture into evaluation mode
         self.architecture.eval()
 
         # Get the model output with gradient calculation disabled
         with no_grad():
-            output = self.architecture(image)
+            model_output = self.architecture(image)
 
         # Shift the output back to the CPU
-        out = output[0].cpu().reshape([1, -1])
+        model_output = model_output[0].cpu().numpy().reshape([1, -1])
 
-        # Convert the output to a numpy array
-        out = out.numpy()
+        # Get the bin centers
+        centers = get_bin_centers(self.age_filter, 1)
 
-        # Calculate the probabilities
-        prob = exp(out)
+        # Take the exponential to convert into a probability (sigmoid)
+        probability = exp(model_output)
 
-        # Get the prediction with the bin centers
-        pred = prob @ centers
+        # Calculate the prediction value as the discrete expected value
+        prediction = probability @ centers
 
-        return pred
+        return prediction

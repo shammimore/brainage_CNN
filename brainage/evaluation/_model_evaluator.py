@@ -1,7 +1,5 @@
 """Model performance evaluator."""
 
-# %% External package import
-
 # %% Internal package import
 
 from brainage.evaluation.metrics import (MeanSquaredError, MeanAbsoluteError,
@@ -18,35 +16,51 @@ class ModelEvaluator():
 
     Parameters
     ----------
-    ...
+    metrics : tuple
+        ...
 
     Attributes
     ----------
-    ...
+    metrics : tuple
+        See `Parameters`.
+
+    metrics_selection : tuple
+        ...
 
     Methods
     -------
-    ...
+    - ``select()`` : select the metrics from the catalogue;
+    - ``compute_metrics(true_labels, predicted_labels)`` : compute all \
+        selected metrics.
     """
 
     def __init__(
             self,
-            metrics=()):
+            metrics):
+
+        print('\n\t Initializing the model evaluator ...')
+        print('\t\t >>> Metrics: {} <<<'.format(metrics))
 
         # Get the attributes from the argument
         self.metrics = metrics
-
-        # Specify the performance metrics catalogue
-        self.metrics_catalogue = (MeanSquaredError, MeanAbsoluteError,
-                                  Correlation)
 
         # Construct the metrics list to compute
         self.metrics_selection = self.select()
 
     def select(self):
-        """Select the metrics from the catalogue."""
+        """
+        Select the metrics from the catalogue.
+
+        Returns
+        -------
+        tuple
+            ...
+        """
+        print('\t\t Selecting the metrics classes from the catalogue ...')
+
         return tuple(metric_class()
-                     for metric_class in self.metrics_catalogue
+                     for metric_class in (Correlation, MeanAbsoluteError,
+                                          MeanSquaredError)
                      for metric in self.metrics
                      if metric_class.label == metric)
 
@@ -55,21 +69,24 @@ class ModelEvaluator():
             true_labels,
             predicted_labels):
         """
-        Compute all metrics.
+        Compute all selected metrics.
 
         Parameters
         ----------
-        image : ...
+        true_labels : ...
+            ...
+
+        predicted_labels : ...
             ...
 
         Returns
         -------
-        image_data : ...
+        metrics_dictionary : ...
             ...
         """
         # Compute the selected metrics and store the results as a dictionary
-        performance_metric = {metric.label: metric.compute(true_labels,
+        metrics_dictionary = {metric.label: metric.compute(true_labels,
                                                            predicted_labels)
                               for metric in self.metrics_selection}
 
-        return performance_metric
+        return metrics_dictionary

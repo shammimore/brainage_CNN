@@ -15,21 +15,33 @@ class Correlation():
 
     Attributes
     ----------
-    ...
+    label : string
+        ...
 
     Methods
     -------
-    ...
+    - ``compute(true_labels, predicted_labels)`` : compute the correlation.
     """
 
     label = 'CORR'
-
-    def __init__(self):
-        return
 
     def compute(
             self,
             true_labels,
             predicted_labels):
-        """Compute the correlation."""
+        """
+        Compute the correlation.
+
+        Parameters
+        ----------
+        true_labels : ...
+            ...
+
+        predicted_labels : ...
+            ...
+
+        Returns
+        -------
+        ...
+        """
         return corrcoef(true_labels, predicted_labels)[0, 1]

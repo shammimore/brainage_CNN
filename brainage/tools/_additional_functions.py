@@ -39,6 +39,20 @@ def crop_center(data, out_sp):
     return data_crop
 
 
+def get_batch(generator, batch_size):
+    """Get a single batch from a generator."""
+    batch = []
+    for i in range(batch_size):
+        try:
+            element = next(generator)
+            batch.append(element)
+        except StopIteration:
+
+            return batch, False
+
+    return batch, True
+
+
 def get_bin_centers(bin_range, bin_step):
     """Get the bin centers for prediction."""
     bin_start = bin_range[0]
