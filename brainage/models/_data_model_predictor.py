@@ -3,6 +3,7 @@
 # %% External package import
 
 from torch import cuda, device
+from pathlib import Path
 
 # %% Internal package import
 
@@ -79,7 +80,8 @@ class DataModelPredictor():
             train_all_layers,
             architecture,
             optimizer,
-            pretrained_weights):
+            pretrained_weights,
+            save_label):
 
         print('\n\t Initializing the data model predictor ...')
         print('\t\t >>> Learning rate: {} - Number of epochs: {} - '
@@ -108,7 +110,7 @@ class DataModelPredictor():
                 data_loader.get_age_values(which='train'),
                 data_loader.get_fold_numbers(which='train'))
 
-        except AttributeError:
+        except (AttributeError, TypeError):
 
             # Create an empty generator
             self.data_generator = iter(())
@@ -140,6 +142,12 @@ class DataModelPredictor():
         # Send the model to the device (CPU or GPU)
         self.model.to(comp_device)
 
+        # create a directory using save_label in results folder
+        save_path = Path('./brainage/models/exports/results', save_label)
+        save_path.mkdir(parents=True, exist_ok=True)
+        self.save_path = save_path # maybe self.model.save_path?
+
+
     def fit(self):
         """Fit the prediction model."""
         # Check if the data generator is not available
@@ -151,7 +159,7 @@ class DataModelPredictor():
 
         # Call the model's specific fit method
         self.model.fit(self.data_generator, self.number_of_epochs,
-                       self.batch_size)
+                       self.batch_size, self.save_path)
 
     def tune_hyperparameters(self):
         """Tune the model hyperparameters."""

@@ -113,7 +113,8 @@ class BrainAgePredictor():
             architecture='sfcn',
             optimizer='adam',
             pretrained_weights=<your_pretrained_weights_path>,
-            metrics=('CORR', 'MSE', 'MAE'))
+            metrics=('CORR', 'MSE', 'MAE'),
+            save_label='trained_model')
 
     Model fitting is triggered by calling
 
@@ -150,7 +151,8 @@ class BrainAgePredictor():
             architecture='sfcn',
             optimizer='adam',
             pretrained_weights=None,
-            metrics=('CORR', 'MAE', 'MSE')):
+            metrics=('CORR', 'MAE', 'MSE'),
+            save_label='trained_model'):
 
         print('\n------ BRAIN AGE PREDICTOR ------\n')
         print('\t You are running the brain age predictor v0.1.0 ...')
@@ -187,14 +189,16 @@ class BrainAgePredictor():
             train_all_layers=train_all_layers,
             architecture=architecture,
             optimizer=optimizer,
-            pretrained_weights=pretrained_weights)
+            pretrained_weights=pretrained_weights,
+            save_label=save_label)
 
         # Initialize the model evaluator
         self.model_evaluator = ModelEvaluator(metrics=metrics)
 
         # Initialize the visualizer
         self.visualizer = Visualizer(
-            tracker=self.data_model_predictor.model.tracker)
+            tracker=self.data_model_predictor.model.tracker,
+            save_path=self.data_model_predictor.save_path)  
 
     def fit(self):
         """Fit the prediction model."""
@@ -243,3 +247,5 @@ class BrainAgePredictor():
         """Open the plot with the label 'name'."""
         print('\n\t Opening the plot "{}" ...'.format(name))
         self.visualizer.open_plot(name)
+
+# %%

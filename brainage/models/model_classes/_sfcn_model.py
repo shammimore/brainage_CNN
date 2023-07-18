@@ -3,9 +3,9 @@
 # %% External package import
 
 from itertools import tee
-from numpy import exp, expand_dims, vstack
+from numpy import exp, expand_dims, vstack, Inf
 from pathlib import Path
-from torch import as_tensor, device, float32, load, no_grad
+from torch import as_tensor, device, float32, load, no_grad, save
 from torch.nn import Conv3d, DataParallel, init, Module
 from torch.optim import Adam, SGD
 
@@ -170,7 +170,8 @@ class SFCNModel(Module):
             self,
             data,
             number_of_epochs,
-            batch_size):
+            batch_size,
+            save_path):
         """
         Fit the SFCN model.
 
@@ -270,7 +271,13 @@ class SFCNModel(Module):
         data_generators = tee(data, number_of_epochs*2)
 
         # Loop over the number of epochs
+        train_loss_per_epoch, val_loss_per_epoch = [], []
+        min_val_loss = Inf
+        
         for epoch in range(number_of_epochs):
+
+            # Initialize the train and validation loss to zero
+            train_loss_over_batchs, val_loss_over_batchs = 0, 0
 
             print('\n\t ------ Epoch %d ------\n' % (epoch))
 
@@ -298,6 +305,7 @@ class SFCNModel(Module):
 
                     # Perform a single training step
                     training_loss, model_output = train(images, soft_labels)
+                    train_loss_over_batchs += training_loss.item()
 
                     # Get the training prediction
                     training_prediction = get_output(centers, model_output)
@@ -306,7 +314,12 @@ class SFCNModel(Module):
                     print('\t Training - Batch: {} - Loss: {} - '
                           'Prediction: {}'
                           .format(counter, training_loss, training_prediction))
+
                     counter += 1
+           
+            # add training loss for each epoch    
+            train_loss_per_epoch.append(train_loss_over_batchs/(counter-1))
+   
 
             # Iterate over the validation data batch-wise
 
@@ -327,6 +340,7 @@ class SFCNModel(Module):
                     # Perform a single validation step
                     validation_loss, model_output = validate(image,
                                                              soft_labels)
+                    val_loss_over_batchs += validation_loss.item()
 
                     # Get the validation prediction
                     validation_prediction = get_output(centers, model_output)
@@ -337,6 +351,27 @@ class SFCNModel(Module):
                           .format(counter, validation_loss,
                                   validation_prediction))
                     counter += 1
+            
+            # add validation loss for each epoch 
+            val_loss = val_loss_over_batchs/(counter-1)
+            val_loss_per_epoch.append(val_loss)
+
+            # save the model state dictionary if current val loss is lower
+            if val_loss < min_val_loss:
+                print(f'Saving model, current loss: {val_loss}, \
+                      previous minimum loss: {min_val_loss}')
+                save(self.architecture.state_dict(), Path(save_path, 'state_dict.pt'))   
+                min_val_loss = val_loss
+
+        # update and save the tracker 
+        self.tracker.update({'epochs':epoch, 
+                             'training_loss':train_loss_per_epoch,
+                             'validation_loss': val_loss_per_epoch,
+                             'model_state_dict': self.architecture.state_dict(),
+                             'optimizer_state_dict': self.optimizer.state_dict()
+                             })   
+        save(self.tracker, Path(save_path, 'tracker.pt'))         
+
 
     def forward(
             self,
