@@ -59,6 +59,7 @@ class DataPreprocessor():
         # Build the preprocessing pipeline
         self.pipeline = self.build((ImageCropper, ImageNormalizer))
 
+        
     def build(
             self,
             steps_catalogue):
@@ -78,8 +79,8 @@ class DataPreprocessor():
         print('\t\t Building the preprocessing pipeline ...')
 
         return tuple(step_class()
-                     for step_class in steps_catalogue
                      for step in self.steps
+                     for step_class in steps_catalogue
                      if step_class.label == step)
 
     def run_pipeline(
@@ -103,6 +104,7 @@ class DataPreprocessor():
 
         # Run the preprocessing steps sequentially
         for step in self.pipeline:
+            print(step)
             image_data = step.transform(image_data, self.image_dimensions)
 
         # Add a dimension to the image data
