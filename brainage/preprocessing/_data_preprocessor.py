@@ -104,7 +104,6 @@ class DataPreprocessor():
 
         # Run the preprocessing steps sequentially
         for step in self.pipeline:
-            print(step)
             image_data = step.transform(image_data, self.image_dimensions)
 
         # Add a dimension to the image data
