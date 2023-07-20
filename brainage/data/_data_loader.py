@@ -114,7 +114,7 @@ class DataLoader():
         print('\t\t Adding the fold numbers ...')
 
         # Initialize the stratified k-fold object
-        skf = StratifiedKFold(n_splits=5)
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=200)
 
         # Generate age bins from the raw age values
         age_bins = cut(self.get_age_values('raw'), bins=5, precision=1,
