@@ -26,7 +26,7 @@ bap = BrainAgePredictor(
     pretrained_weights='./brainage/models/exports/pretrained_weights/'
     'run_20190719_00_epoch_best_mae.p',
     metrics=('CORR', 'MSE', 'MAE'),
-    save_label= 'ixi_adam_0.0001_240')
+    save_label='ixi_adam_0.0001_240')
 
 # %% Model fitting
 
