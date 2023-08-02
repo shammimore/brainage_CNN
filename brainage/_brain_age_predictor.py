@@ -12,6 +12,7 @@ from brainage.preprocessing import DataPreprocessor
 from brainage.models import DataModelPredictor
 from brainage.evaluation import ModelEvaluator
 from brainage.visualization import Visualizer
+from brainage.tools import check_brain_age_predictor
 
 # %% Class definition
 
@@ -142,7 +143,7 @@ class BrainAgePredictor():
             self,
             data_path=None,
             age_filter=[42, 82],
-            image_dimensions=(160, 192, 160),
+            image_dimensions=(160, 191, 160),
             steps=(),
             learning_rate=0.0001,
             number_of_epochs=240,
@@ -157,17 +158,20 @@ class BrainAgePredictor():
         print('\n------ BRAIN AGE PREDICTOR ------\n')
         print('\t You are running the brain age predictor v0.1.0 ...')
 
-        # Check if neither data path nor weights are passed
-        if not data_path and not pretrained_weights:
-
-            raise ValueError("Please provide either a training dataset for "
-                             "the model or pretrained model weights!")
-
-        # Check if no weights are passed and train_all_layers is False
-        if not pretrained_weights and not train_all_layers:
-
-            raise ValueError("Please set 'train_all_layers' to True if no "
-                             "pretrained weights are passed!")
+        # Check inputs for initilaization
+        check_brain_age_predictor(data_path,
+            age_filter,
+            image_dimensions,
+            steps,
+            learning_rate,
+            number_of_epochs,
+            batch_size,
+            train_all_layers,
+            architecture,
+            optimizer,
+            pretrained_weights,
+            metrics,
+            save_label)
 
         # Initialize the data loader
         self.data_loader = DataLoader(
