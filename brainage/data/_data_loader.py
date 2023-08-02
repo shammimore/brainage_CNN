@@ -76,14 +76,14 @@ class DataLoader():
                 raise ValueError("File must contain image paths and age "
                                  "values!")
 
-            # # Rename the values of file path
-            # self.sets['raw']['file_path'] = self.sets[
-            #     'raw']['file_path'].str.replace(
-            #     '.images', 'brainage/data/datasets/images')
+            # Rename the values of file path
+            self.sets['raw']['file_path'] = self.sets[
+                'raw']['file_path'].str.replace(
+                '.images', 'brainage/data/datasets/images')
 
-            # # Select samples based on the site
-            # self.sets['raw'] = self.sets['raw'][
-            #     self.sets['raw']['site'] == 'IXI/IOP']
+            # Select samples based on the site
+            self.sets['raw'] = self.sets['raw'][
+                self.sets['raw']['site'] == 'IXI/IOP']
 
             # Select samples based on the given age range
             self.sets['raw'] = self.sets['raw'][

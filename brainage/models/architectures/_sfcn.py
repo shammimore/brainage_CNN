@@ -62,7 +62,7 @@ class SFCN(nn.Module):
             kernel_size=3,
             padding=0,
             maxpool_stride=2):
-
+        """."""
         if maxpool is True:
             layer = nn.Sequential(
                 nn.Conv3d(in_channel, out_channel, padding=padding,
@@ -84,7 +84,7 @@ class SFCN(nn.Module):
     def forward(
             self,
             x):
-
+        """."""
         out = list()
         x_f = self.feature_extractor(x)
         x = self.classifier(x_f)

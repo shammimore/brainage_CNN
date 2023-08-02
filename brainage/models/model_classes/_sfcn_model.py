@@ -273,7 +273,7 @@ class SFCNModel(Module):
         # Loop over the number of epochs
         train_loss_per_epoch, val_loss_per_epoch = [], []
         min_val_loss = Inf
-        
+
         for epoch in range(number_of_epochs):
 
             # Initialize the train and validation loss to zero
@@ -316,10 +316,9 @@ class SFCNModel(Module):
                           .format(counter, training_loss, training_prediction))
 
                     counter += 1
-           
-            # add training loss for each epoch    
+
+            # add training loss for each epoch
             train_loss_per_epoch.append(train_loss_over_batchs/(counter-1))
-   
 
             # Iterate over the validation data batch-wise
 
@@ -351,8 +350,8 @@ class SFCNModel(Module):
                           .format(counter, validation_loss,
                                   validation_prediction))
                     counter += 1
-            
-            # add validation loss for each epoch 
+
+            # add validation loss for each epoch
             val_loss = val_loss_over_batchs/(counter-1)
             val_loss_per_epoch.append(val_loss)
 
@@ -360,18 +359,18 @@ class SFCNModel(Module):
             if val_loss < min_val_loss:
                 print(f'Saving model, current loss: {val_loss}, \
                       previous minimum loss: {min_val_loss}')
-                save(self.architecture.state_dict(), Path(save_path, 'state_dict.pt'))   
+                save(self.architecture.state_dict(), Path(save_path,
+                                                          'state_dict.pt'))
                 min_val_loss = val_loss
 
-        # update and save the tracker 
-        self.tracker.update({'epochs':epoch, 
-                             'training_loss':train_loss_per_epoch,
+        # update and save the tracker
+        self.tracker.update({'epochs': epoch,
+                             'training_loss': train_loss_per_epoch,
                              'validation_loss': val_loss_per_epoch,
                              'model_state_dict': self.architecture.state_dict(),
                              'optimizer_state_dict': self.optimizer.state_dict()
-                             })   
-        save(self.tracker, Path(save_path, 'tracker.pt'))         
-
+                             })
+        save(self.tracker, Path(save_path, 'tracker.pt'))
 
     def forward(
             self,

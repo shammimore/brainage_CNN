@@ -2,7 +2,7 @@
 
 # %% External package import
 
-from numpy import arange, array, floor, isscalar, ndim, random, zeros
+from numpy import arange, array, floor, isscalar, ndim, random, vstack, zeros
 from random import seed
 from scipy.stats import norm
 from torch import manual_seed as torch_manual_seed
@@ -37,6 +37,13 @@ def crop_center(data, out_sp):
     else:
         raise ('Wrong dimension! dim=%d.' % nd)
     return data_crop
+
+
+def extend_label_to_vector(x, bin_range):
+    """."""
+    return vstack([[true_age > bin_age
+                   for bin_age in range(bin_range[0], bin_range[1]-1)]
+                   for true_age in x])
 
 
 def get_batch(generator, batch_size):

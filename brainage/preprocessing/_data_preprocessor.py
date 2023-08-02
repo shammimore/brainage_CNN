@@ -59,7 +59,6 @@ class DataPreprocessor():
         # Build the preprocessing pipeline
         self.pipeline = self.build((ImageCropper, ImageNormalizer))
 
-        
     def build(
             self,
             steps_catalogue):

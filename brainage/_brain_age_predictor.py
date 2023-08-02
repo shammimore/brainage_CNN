@@ -3,7 +3,7 @@
 # %% External package import
 
 from nibabel import load
-from numpy import hstack
+from numpy import vstack
 
 # %% Internal package import
 
@@ -158,20 +158,10 @@ class BrainAgePredictor():
         print('\n------ BRAIN AGE PREDICTOR ------\n')
         print('\t You are running the brain age predictor v0.1.0 ...')
 
-        # Check inputs for initilaization
-        check_brain_age_predictor(data_path,
-            age_filter,
-            image_dimensions,
-            steps,
-            learning_rate,
-            number_of_epochs,
-            batch_size,
-            train_all_layers,
-            architecture,
-            optimizer,
-            pretrained_weights,
-            metrics,
-            save_label)
+        # Check inputs for initialization
+        check_brain_age_predictor(**{key: value
+                                     for key, value in locals().items()
+                                     if key != 'self'})
 
         # Initialize the data loader
         self.data_loader = DataLoader(
@@ -202,7 +192,7 @@ class BrainAgePredictor():
         # Initialize the visualizer
         self.visualizer = Visualizer(
             tracker=self.data_model_predictor.model.tracker,
-            save_path=self.data_model_predictor.save_path)  
+            save_path=self.data_model_predictor.save_path)
 
     def fit(self):
         """Fit the prediction model."""
@@ -230,7 +220,7 @@ class BrainAgePredictor():
             images = (load(path) for path in image_path)
             preprocessed_images = (self.data_preprocessor.run_pipeline(image)
                                    for image in images)
-            predictions = hstack([
+            predictions = vstack([
                 self.data_model_predictor.predict(image)
                 for image in preprocessed_images])
 
@@ -251,5 +241,3 @@ class BrainAgePredictor():
         """Open the plot with the label 'name'."""
         print('\n\t Opening the plot "{}" ...'.format(name))
         self.visualizer.open_plot(name)
-
-# %%

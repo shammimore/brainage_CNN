@@ -1,4 +1,4 @@
-"""Kullback-Leibler divergence loss."""
+"""BCE loss."""
 
 # %% External package import
 
@@ -8,10 +8,7 @@ import torch.nn as nn
 
 
 def BCELoss(x, y):
-    """
-    Return Binary Cross Entropy loss.
-
-    """
+    """Return the binary cross entropy loss."""
     loss_func = nn.BCELoss()
     loss = loss_func(x, y)
 

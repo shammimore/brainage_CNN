@@ -1,19 +1,20 @@
-"""SFCN model."""
+"""RankSFCN model."""
 
 # %% External package import
 
 from itertools import tee
-from numpy import exp, expand_dims, vstack, Inf
+from numpy import expand_dims, vstack, Inf
 from pathlib import Path
 from torch import as_tensor, device, float32, load, no_grad, save
-from torch.nn import Conv3d, DataParallel, init, Module
+from torch import zeros
+from torch.nn import DataParallel, Linear, Module, Parameter
 from torch.optim import Adam, SGD
 
 # %% Internal package import
 
-from brainage.models.architectures import SFCN
-from brainage.models.loss_functions import KLDivLoss
-from brainage.tools import get_batch, get_bin_centers, num2vect
+from brainage.models.architectures import RankSFCN
+from brainage.models.loss_functions import BCELoss
+from brainage.tools import extend_label_to_vector, get_batch
 
 # %% Class definition
 
@@ -78,7 +79,7 @@ class RankSFCNModel(Module):
         self.age_filter = age_filter
 
         # Initialize the model architecture
-        self.architecture = SFCN()
+        self.architecture = RankSFCN()
 
         # Parallelize the model
         self.architecture = DataParallel(self.architecture)
@@ -119,14 +120,13 @@ class RankSFCNModel(Module):
         """
         print('\t\t Adapting the output layer for the age range ...')
 
-        # Rescale the output layer to the age range
-        self.architecture.module.classifier.conv_6 = Conv3d(64,
-                                                            age_range,
-                                                            padding=0,
-                                                            kernel_size=1)
+        # Add the final linear layer without biases to the architecture
+        self.architecture.module.linear_layer = Linear(age_range, 1,
+                                                       bias=False)
 
-        # Initialize the output layer's weights with He
-        init.kaiming_normal_(self.architecture.module.classifier.conv_6.weight)
+        # Add the (trainable) linear bias vector to the architecture
+        self.architecture.module.linear_bias = Parameter(
+            zeros(age_range-1).float())
 
     def set_optimizer(
             self,
@@ -144,6 +144,7 @@ class RankSFCNModel(Module):
             ...
         """
         print('\t\t Setting the optimizer ...')
+
         # Check if the optimizer is 'adam'
         if optimizer == 'adam':
 
@@ -195,14 +196,13 @@ class RankSFCNModel(Module):
             images = vstack([sample[0] for sample in batch])
             labels = [sample[1] for sample in batch]
 
-            # Transform the labels to soft labels (probabilities) with centers
-            soft_labels, centers = num2vect(x=labels,
-                                            bin_range=self.age_filter,
-                                            bin_step=1, sigma=1)
+            # Transform the labels to extended binary vectors
+            extended_labels = extend_label_to_vector(
+                    x=labels, bin_range=self.age_filter)
 
             # Convert the soft labels to tensors
-            soft_labels = as_tensor(soft_labels, dtype=float32,
-                                    device=self.comp_device)
+            extended_labels = as_tensor(extended_labels, dtype=float32,
+                                        device=self.comp_device)
 
             # Add a dimension to the images
             images = expand_dims(images, axis=1)
@@ -210,22 +210,13 @@ class RankSFCNModel(Module):
             # Convert the images to tensors
             images = as_tensor(images, dtype=float32, device=self.comp_device)
 
-            return images, soft_labels, centers
+            return images, extended_labels
 
-        def get_output(centers, model_output):
+        def get_output(model_output):
             """Get the age prediction from the model output."""
-            # Shift the model output to cpu and convert to numpy
-            model_output = model_output.detach().cpu().numpy()
+            return model_output.detach().cpu().numpy()
 
-            # Take the exponential to convert into a probability (sigmoid)
-            probability = exp(model_output)
-
-            # Calculate the prediction value as the discrete expected value
-            prediction = probability @ centers
-
-            return prediction
-
-        def train(image, soft_labels):
+        def train(image, extended_labels):
 
             # Set the architecture into training mode
             self.architecture.train()
@@ -239,8 +230,8 @@ class RankSFCNModel(Module):
             # Reshape the model output
             model_output = model_output[0].reshape([image.shape[0], -1])
 
-            # Calculate the KL divergence loss
-            training_loss = KLDivLoss(model_output, soft_labels)
+            # Calculate the BCE loss
+            training_loss = BCELoss(model_output, extended_labels)
 
             # Propagate the loss back to the parameters
             training_loss.backward()
@@ -248,9 +239,13 @@ class RankSFCNModel(Module):
             # Perform a single parameter update
             self.optimizer.step()
 
+            # Clamp the weights of the output layer for non-negativity
+            self.architecture.module.linear_layer.weight.data = (
+                self.architecture.module.linear_layer.weight.data.clamp(min=0))
+
             return training_loss, model_output
 
-        def validate(image, soft_labels):
+        def validate(image, extended_labels):
 
             # Set the architecture into evaluation mode
             self.architecture.eval()
@@ -262,8 +257,8 @@ class RankSFCNModel(Module):
             # Reshape the model output
             model_output = model_output[0].reshape([image.shape[0], -1])
 
-            # Calculate the KL divergence loss
-            validation_loss = KLDivLoss(model_output, soft_labels)
+            # Calculate the BCE loss
+            validation_loss = BCELoss(model_output, extended_labels)
 
             return validation_loss, model_output
 
@@ -273,7 +268,7 @@ class RankSFCNModel(Module):
         # Loop over the number of epochs
         train_loss_per_epoch, val_loss_per_epoch = [], []
         min_val_loss = Inf
-        
+
         for epoch in range(number_of_epochs):
 
             # Initialize the train and validation loss to zero
@@ -288,7 +283,6 @@ class RankSFCNModel(Module):
                                if el[2] == 1)
 
             # Iterate over the training data batch-wise
-
             proceed = True  # Continuation flag
             counter = 1  # Batch counter
 
@@ -301,14 +295,15 @@ class RankSFCNModel(Module):
                 if len(batch) > 0:
 
                     # Get the model input
-                    images, soft_labels, centers = get_input(batch)
+                    images, extended_labels = get_input(batch)
 
                     # Perform a single training step
-                    training_loss, model_output = train(images, soft_labels)
+                    training_loss, model_output = train(images,
+                                                        extended_labels)
                     train_loss_over_batchs += training_loss.item()
 
                     # Get the training prediction
-                    training_prediction = get_output(centers, model_output)
+                    training_prediction = get_output(model_output)
 
                     # Print a message after the training epoch
                     print('\t Training - Batch: {} - Loss: {} - '
@@ -316,13 +311,11 @@ class RankSFCNModel(Module):
                           .format(counter, training_loss, training_prediction))
 
                     counter += 1
-           
-            # add training loss for each epoch    
+
+            # Add training loss for each epoch
             train_loss_per_epoch.append(train_loss_over_batchs/(counter-1))
-   
 
             # Iterate over the validation data batch-wise
-
             proceed = True  # Continuation flag
             counter = 1  # Batch counter
 
@@ -335,15 +328,15 @@ class RankSFCNModel(Module):
                 if len(batch) > 0:
 
                     # Get the model input
-                    image, soft_labels, centers = get_input(batch)
+                    image, extended_labels = get_input(batch)
 
                     # Perform a single validation step
                     validation_loss, model_output = validate(image,
-                                                             soft_labels)
+                                                             extended_labels)
                     val_loss_over_batchs += validation_loss.item()
 
                     # Get the validation prediction
-                    validation_prediction = get_output(centers, model_output)
+                    validation_prediction = get_output(model_output)
 
                     # Print a message after the validation epoch
                     print('\t Validation - Batch: {} - Loss: {} - '
@@ -351,8 +344,8 @@ class RankSFCNModel(Module):
                           .format(counter, validation_loss,
                                   validation_prediction))
                     counter += 1
-            
-            # add validation loss for each epoch 
+
+            # Add validation loss for each epoch
             val_loss = val_loss_over_batchs/(counter-1)
             val_loss_per_epoch.append(val_loss)
 
@@ -360,18 +353,20 @@ class RankSFCNModel(Module):
             if val_loss < min_val_loss:
                 print(f'Saving model, current loss: {val_loss}, \
                       previous minimum loss: {min_val_loss}')
-                save(self.architecture.state_dict(), Path(save_path, 'state_dict.pt'))   
+                save(self.architecture.state_dict(), Path(save_path,
+                                                          'state_dict.pt'))
                 min_val_loss = val_loss
 
-        # update and save the tracker 
-        self.tracker.update({'epochs':epoch, 
-                             'training_loss':train_loss_per_epoch,
+        # Update and save the tracker
+        self.tracker.update({'epochs': epoch,
+                             'training_loss': train_loss_per_epoch,
                              'validation_loss': val_loss_per_epoch,
-                             'model_state_dict': self.architecture.state_dict(),
-                             'optimizer_state_dict': self.optimizer.state_dict()
-                             })   
-        save(self.tracker, Path(save_path, 'tracker.pt'))         
-
+                             'model_state_dict': (
+                                 self.architecture.state_dict()),
+                             'optimizer_state_dict': (
+                                 self.optimizer.state_dict())
+                             })
+        save(self.tracker, Path(save_path, 'tracker.pt'))
 
     def forward(
             self,
@@ -396,13 +391,4 @@ class RankSFCNModel(Module):
         # Shift the output back to the CPU
         model_output = model_output[0].cpu().numpy().reshape([1, -1])
 
-        # Get the bin centers
-        centers = get_bin_centers(self.age_filter, 1)
-
-        # Take the exponential to convert into a probability (sigmoid)
-        probability = exp(model_output)
-
-        # Calculate the prediction value as the discrete expected value
-        prediction = probability @ centers
-
-        return prediction
+        return model_output

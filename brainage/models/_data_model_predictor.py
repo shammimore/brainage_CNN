@@ -7,7 +7,7 @@ from pathlib import Path
 
 # %% Internal package import
 
-from brainage.models.model_classes import SFCNModel
+from brainage.models.model_classes import RankSFCNModel, SFCNModel
 from brainage.tools import random_seed
 
 # %% Class definition
@@ -116,7 +116,8 @@ class DataModelPredictor():
             self.data_generator = iter(())
 
         # Initialize the prediction model
-        architectures = {'sfcn': SFCNModel}
+        architectures = {'rank_sfcn': RankSFCNModel,
+                         'sfcn': SFCNModel}
         self.model = architectures[architecture](pretrained_weights,
                                                  comp_device,
                                                  data_loader.age_filter)
@@ -128,7 +129,7 @@ class DataModelPredictor():
             self.model.freeze_inner_layers()
 
         # Check if the age filter is greater than the default range
-        if data_loader.age_filter != [42, 82]:
+        if data_loader.age_filter != [42, 82] or architecture == 'rank_sfcn':
 
             # Get the age filter
             age_filter = data_loader.age_filter
@@ -142,11 +143,10 @@ class DataModelPredictor():
         # Send the model to the device (CPU or GPU)
         self.model.to(comp_device)
 
-        # create a directory using save_label in results folder
+        # Create a directory using save_label in results folder
         save_path = Path('./brainage/models/exports/results', save_label)
         save_path.mkdir(parents=True, exist_ok=True)
-        self.save_path = save_path # maybe self.model.save_path?
-
+        self.save_path = save_path
 
     def fit(self):
         """Fit the prediction model."""
