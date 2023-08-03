@@ -215,8 +215,10 @@ class RankResnetModel(Module):
 
         def get_output(model_output):
             """Get the age prediction from the model output."""
-            return dot(model_output.detach().cpu().numpy(), 
+            model_output = model_output.detach().cpu().numpy()
+            return (dot(model_output, 
                        array(range(self.age_filter[0]+1, self.age_filter[1])))
+                       / model_output.sum(axis=1))
 
         def train(image, extended_labels):
 
