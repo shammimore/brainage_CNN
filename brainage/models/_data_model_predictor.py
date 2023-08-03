@@ -7,7 +7,8 @@ from pathlib import Path
 
 # %% Internal package import
 
-from brainage.models.model_classes import RankSFCNModel, SFCNModel
+from brainage.models.model_classes import (RankResnetModel, RankSFCNModel, 
+                                            SFCNModel)
 from brainage.tools import random_seed
 
 # %% Class definition
@@ -116,7 +117,8 @@ class DataModelPredictor():
             self.data_generator = iter(())
 
         # Initialize the prediction model
-        architectures = {'rank_sfcn': RankSFCNModel,
+        architectures = {'rank_resnet3d': RankResnetModel,
+                        'rank_sfcn': RankSFCNModel,
                          'sfcn': SFCNModel}
         self.model = architectures[architecture](pretrained_weights,
                                                  comp_device,
@@ -129,7 +131,8 @@ class DataModelPredictor():
             self.model.freeze_inner_layers()
 
         # Check if the age filter is greater than the default range
-        if data_loader.age_filter != [42, 82] or architecture == 'rank_sfcn':
+        if data_loader.age_filter != [42, 82] or architecture == 'rank_sfcn'\
+            or architecture == 'rank_resnet3d':
 
             # Get the age filter
             age_filter = data_loader.age_filter

@@ -12,16 +12,16 @@ from torch.optim import Adam, SGD
 
 # %% Internal package import
 
-from brainage.models.architectures import RankSFCN
+from brainage.models.architectures import rankresnet34
 from brainage.models.loss_functions import BCELoss
 from brainage.tools import extend_label_to_vector, get_batch
 
 # %% Class definition
 
 
-class RankSFCNModel(Module):
+class RankResnetModel(Module):
     """
-    Rank SFCN model class.
+    Rank Resnet model class.
 
     This class provides ...
 
@@ -72,14 +72,14 @@ class RankSFCNModel(Module):
             age_filter):
 
         # Call the superclass constructor
-        super(RankSFCNModel, self).__init__()
+        super(RankResnetModel, self).__init__()
 
         # Get the attributes from the arguments
         self.comp_device = comp_device
         self.age_filter = age_filter
 
         # Initialize the model architecture
-        self.architecture = RankSFCN()
+        self.architecture = rankresnet34()
 
         # Parallelize the model
         self.architecture = DataParallel(self.architecture)
@@ -95,9 +95,10 @@ class RankSFCNModel(Module):
     def freeze_inner_layers(self):
         """Freeze the parameters of the input and hidden layers."""
         print('\t\t Freezing the parameters of input and hidden layers ...')
+        
         # Get all and only the output layer parameters
         all_params = self.parameters()
-        out_params = self.architecture.module.classifier.conv_6.parameters()
+        out_params = self.architecture.module.classifier.parameters()
 
         # Set the gradient calculation for all parameters to False
         for param in all_params:
@@ -120,8 +121,8 @@ class RankSFCNModel(Module):
         """
         print('\t\t Adapting the output layer for the age range ...')
 
-        # Add the final linear layer without biases to the architecture
-        self.architecture.module.linear_layer = Linear(age_range, 1,
+        # Change the final linear layer without biases to the architecture
+        self.architecture.module.classifier = Linear(512, 1,
                                                        bias=False)
 
         # Add the (trainable) linear bias vector to the architecture
@@ -188,7 +189,7 @@ class RankSFCNModel(Module):
             ...
         """
         print('')
-        print('\t Fitting the Rank-Consistent SFCN model to the data ...')
+        print('\t Fitting the Rank-Consistent ResNet34 model to the data ...')
 
         def get_input(batch):
             """Get the images, soft labels and centers from a batch."""
@@ -214,13 +215,8 @@ class RankSFCNModel(Module):
 
         def get_output(model_output):
             """Get the age prediction from the model output."""
-            
-            model_output = model_output.detach().cpu().numpy()
-            print(model_output)
-            print(array(range(self.age_filter[0]+1, self.age_filter[1])))
-            return (dot(model_output, 
+            return dot(model_output.detach().cpu().numpy(), 
                        array(range(self.age_filter[0]+1, self.age_filter[1])))
-                       / model_output.sum())
 
         def train(image, extended_labels):
 
@@ -246,8 +242,8 @@ class RankSFCNModel(Module):
             self.optimizer.step()
 
             # Clamp the weights of the output layer for non-negativity
-            self.architecture.module.linear_layer.weight.data = (
-                self.architecture.module.linear_layer.weight.data.clamp(min=0))
+            self.architecture.module.classifier.weight.data = (
+                self.architecture.module.classifier.weight.data.clamp(min=0))
 
             return training_loss, model_output
 
