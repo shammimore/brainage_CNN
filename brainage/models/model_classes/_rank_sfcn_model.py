@@ -199,6 +199,7 @@ class RankSFCNModel(Module):
             # Transform the labels to extended binary vectors
             extended_labels = extend_label_to_vector(
                     x=labels, bin_range=self.age_filter)
+            # print("extended_labels: \n", extended_labels)
 
             # Convert the soft labels to tensors
             extended_labels = as_tensor(extended_labels, dtype=float32,
@@ -215,9 +216,13 @@ class RankSFCNModel(Module):
         def get_output(model_output):
             """Get the age prediction from the model output."""
             model_output = model_output.detach().cpu().numpy()
-            return (dot(model_output, 
-                       array(range(self.age_filter[0]+1, self.age_filter[1])))
-                       / model_output.sum(axis=1))
+            
+            # return (dot(model_output, 
+            #            array(range(self.age_filter[0]+1, self.age_filter[1])))
+            #            / model_output.sum(axis=1))
+            
+            binary_labels = model_output >= 0.5
+            return (self.age_filter[0] + binary_labels.sum(axis=1))
 
         def train(image, extended_labels):
 
@@ -395,4 +400,8 @@ class RankSFCNModel(Module):
         # Shift the output back to the CPU
         model_output = model_output[0].cpu().numpy().reshape([1, -1])
 
-        return model_output
+        # Threshold the probabilities
+        binary_labels = model_output >= 0.5
+
+        # Return predicted age
+        return (self.age_filter[0] + binary_labels.sum())
