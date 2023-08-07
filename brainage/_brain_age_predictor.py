@@ -4,6 +4,7 @@
 
 from nibabel import load
 from numpy import vstack
+from time import gmtime, time, strftime
 
 # %% Internal package import
 
@@ -12,7 +13,7 @@ from brainage.preprocessing import DataPreprocessor
 from brainage.models import DataModelPredictor
 from brainage.evaluation import ModelEvaluator
 from brainage.visualization import Visualizer
-from brainage.tools import check_brain_age_predictor
+from brainage.tools import check_inputs
 
 # %% Class definition
 
@@ -37,13 +38,19 @@ class BrainAgePredictor():
     steps : tuple, default=()
         ...
 
-    learning_rate : float, default=0.0001
+    learning_rate : float, default=0.001
         ...
 
-    number_of_epochs : int, default=240
+    number_of_epochs : int, default=100
         ...
 
-    batch_size : int, default=3
+    batch_size : int, default=4
+        ...
+
+    early_stopping_rounds : int, default=5
+        ...
+
+    reduce_lr_on_plateau : dict
         ...
 
     train_all_layers : bool, default=False
@@ -59,6 +66,10 @@ class BrainAgePredictor():
         ...
 
     metrics : tuple, default=('CORR', 'MAE', 'MSE')
+        ...
+
+    save_label : string, default='autosave'
+        ...
 
     Attributes
     ----------
@@ -72,7 +83,7 @@ class BrainAgePredictor():
         ...
 
     model_evaluator : ...
-            ...
+        ...
 
     visualizer : ...
         ...
@@ -95,21 +106,23 @@ class BrainAgePredictor():
     passing pretrained weights is mandatory. If a data path is provided, but \
     no pretrained weights are passed, then ``train_all_layers`` must be True. \
     If a data path is provided, and pretrained weights are passed, you can \
-    decide whether to train all layers (True) or only the last layer (False).
+    decide whether to retrain all layers (True) or only the last layer (False).
 
     Examples
     --------
-    First, the brain age predictor needs to be initialized. This can be done \
-    via
+    First, the brain age predictor needs to be initialized. Using default \
+    settings, this step is accomplished by
 
     >>> bap = BrainAgePredictor(
             data_path=<your_data_path>,
             age_filter=[42, 82],
             image_dimensions=(160, 192, 160),
             steps=('normalize_image', 'crop_center'),
-            learning_rate=0.0001,
-            number_of_epochs=30,
-            batch_size=3,
+            learning_rate=0.001,
+            number_of_epochs=100,
+            batch_size=4,
+            early_stopping_rounds=10,
+            reduce_lr_on_plateau={'rounds': 5, 'factor': 0.5},
             train_all_layers=False,
             architecture='sfcn',
             optimizer='adam',
@@ -121,47 +134,46 @@ class BrainAgePredictor():
 
     >>> bap.fit()
 
-    A ready-to-use model can then predict the age based on input images, with \
-    the syntax
+    A ready-to-use model enables the prediction of age values given some \
+    input images, using the syntax
 
-    >>> prediction = bap.predict(
-            image_path=<your_predict_image_path>)
+    >>> prediction = bap.predict(image_path=<your_image_path>)
 
     Evaluation of the model performance based on the passed ``metrics`` \
-    argument is run from the lines
+    argument is performed by the line
 
-    >>> bap.evaluate(
-            true_labels=<your_true_labels>,
-            predicted_labels=prediction)
+    >>> bap.evaluate(true_labels=<your_true_labels>,
+                     predicted_labels=prediction)
 
-    Finally, different results can be plotted using
+    Finally, different types of plots can be generated with
 
-    >>> bap.plot("<name of the plot>")
+    >>> bap.plot(name=<plot_name>)
     """
 
     def __init__(
             self,
             data_path=None,
             age_filter=[42, 82],
-            image_dimensions=(160, 191, 160),
+            image_dimensions=(160, 192, 160),
             steps=(),
-            learning_rate=0.0001,
-            number_of_epochs=240,
-            batch_size=3,
+            learning_rate=0.001,
+            number_of_epochs=100,
+            batch_size=4,
+            early_stopping_rounds=5,
+            reduce_lr_on_plateau={'rounds': 3, 'factor': 0.5},
             train_all_layers=False,
             architecture='sfcn',
             optimizer='adam',
             pretrained_weights=None,
             metrics=('CORR', 'MAE', 'MSE'),
-            save_label='trained_model'):
+            save_label='autosave'):
 
         print('\n------ BRAIN AGE PREDICTOR ------\n')
         print('\t You are running the brain age predictor v0.1.0 ...')
 
         # Check inputs for initialization
-        check_brain_age_predictor(**{key: value
-                                     for key, value in locals().items()
-                                     if key != 'self'})
+        check_inputs(**{key: value for key, value in locals().items()
+                        if key != 'self'})
 
         # Initialize the data loader
         self.data_loader = DataLoader(
@@ -180,6 +192,8 @@ class BrainAgePredictor():
             learning_rate=learning_rate,
             number_of_epochs=number_of_epochs,
             batch_size=batch_size,
+            early_stopping_rounds=early_stopping_rounds,
+            reduce_lr_on_plateau=reduce_lr_on_plateau,
             train_all_layers=train_all_layers,
             architecture=architecture,
             optimizer=optimizer,
@@ -187,7 +201,8 @@ class BrainAgePredictor():
             save_label=save_label)
 
         # Initialize the model evaluator
-        self.model_evaluator = ModelEvaluator(metrics=metrics)
+        self.model_evaluator = ModelEvaluator(
+            metrics=metrics)
 
         # Initialize the visualizer
         self.visualizer = Visualizer(
@@ -196,48 +211,102 @@ class BrainAgePredictor():
 
     def fit(self):
         """Fit the prediction model."""
+        # Start the runtime recording
+        fit_start = time()
+
+        # Fit the data model
         self.data_model_predictor.fit()
+
+        # End the runtime recording and print the fitting time
+        print("\n\t Fitting time is {} ...".format(
+                strftime("%H:%M:%S", gmtime(time()-fit_start))))
 
     def predict(
             self,
             image_path):
-        """Predict the brain age from an image."""
+        """
+        Predict the brain age from an image.
+
+        Parameters
+        ----------
+        image_path : string, tuple or list
+            ...
+
+        Returns
+        -------
+        ndarray
+            ...
+        """
         print('\n\t Predicting the brain age ...')
 
-        # Run single prediction
+        # Check if the image path is a string
         if isinstance(image_path, str):
 
+            # Load the image from the path
             image = load(image_path)
+
+            # Preprocess the image
             preprocessed_image = self.data_preprocessor.run_pipeline(image)
+
+            # Get the age value from the image
             prediction = self.data_model_predictor.predict(
                 preprocessed_image)
 
             return prediction
 
-        # Run multiple predictions
+        # Else, check if the image path is a tuple or a list
         elif isinstance(image_path, (tuple, list)):
 
+            # Load all images from the paths
             images = (load(path) for path in image_path)
+
+            # Preprocess all images
             preprocessed_images = (self.data_preprocessor.run_pipeline(image)
                                    for image in images)
+
+            # Get the age values from all images and stack them
             predictions = vstack([
                 self.data_model_predictor.predict(image)
                 for image in preprocessed_images])
 
-            return predictions
+            return predictions.reshape(-1)
 
     def evaluate(
             self,
             true_labels,
             predicted_labels):
-        """Evaluate the model performance."""
+        """
+        Evaluate the model performance.
+
+        Parameters
+        ----------
+        true_labels : ...
+            ...
+
+        predicted_labels : ...
+            ...
+
+        Returns
+        -------
+        dict
+            ...
+        """
         print('\n\t Evaluating the model performance ...')
+
         return self.model_evaluator.compute_metrics(true_labels,
                                                     predicted_labels)
 
     def plot(
             self,
             name):
-        """Open the plot with the label 'name'."""
-        print('\n\t Opening the plot "{}" ...'.format(name))
+        """Open a specific plot type.
+
+        Parameters
+        ----------
+        name : string
+            ...
+        """
+        print('\n\t Opening "{}" plot ...'.format(name))
+
+        # Open 'name' plot with the visualizer
         self.visualizer.open_plot(name)

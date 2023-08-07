@@ -1,3 +1,5 @@
+"""Brain age prediction module."""
+
 from . import data
 from . import evaluation
 from . import models

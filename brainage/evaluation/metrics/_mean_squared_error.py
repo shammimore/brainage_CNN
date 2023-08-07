@@ -1,4 +1,4 @@
-"""Mean squared error computation."""
+"""Mean squared error."""
 
 # %% External package import
 
@@ -9,7 +9,7 @@ from sklearn.metrics import mean_squared_error
 
 class MeanSquaredError():
     """
-    Mean squared error computation class.
+    Mean squared error class.
 
     This class provides ...
 

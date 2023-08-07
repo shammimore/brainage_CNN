@@ -1,4 +1,4 @@
-"""Correlation computation."""
+"""Correlation."""
 
 # %% External package import
 
@@ -9,7 +9,7 @@ from numpy import corrcoef
 
 class Correlation():
     """
-    Correlation computation class.
+    Correlation class.
 
     This class provides ...
 

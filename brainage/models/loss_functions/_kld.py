@@ -2,23 +2,36 @@
 
 # %% External package import
 
-import torch.nn as nn
+from torch.nn import KLDivLoss as TorchKLDivLoss
 
 # %% Function definition
 
 
-def KLDivLoss(x, y):
+def KLDivLoss(prediction, ground_truth):
     """
-    Return K-L Divergence loss.
+    Compute the Kullback-Leibler divergence loss.
 
-    Different from the default PyTorch nn.KLDivLoss in that
-    a) the result is averaged by the 0th dimension (Batch size)
-    b) the y distribution is added with a small value (1e-16) to prevent \
-    log(0) problem
+    Parameters
+    ----------
+    prediction : ...
+        ...
+
+    ground_truth : ...
+        ...
+
+    Returns
+    -------
+    loss : ...
+        ...
+
+    Notes
+    -----
+    This implementation is different from the default PyTorch `KLDivLoss` in \
+    that a) the resulting loss is averaged by the 0th dimension (batch size), \
+    and b) a small value (1e-16) is added to the distribution of the ground \
+    truth values to prevent numerical problems with log(0).
     """
-    loss_func = nn.KLDivLoss(reduction='sum')
-    y += 1e-16
-    n = y.shape[0]
-    loss = loss_func(x, y) / n
+    loss_func = TorchKLDivLoss(reduction='sum')
+    loss = loss_func(prediction, ground_truth+1e-16) / ground_truth.shape[0]
 
     return loss

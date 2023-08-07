@@ -1,7 +1,0 @@
-site,subject,age,sex,file_path,fold
-IXI/IOP,sub-IXI588,45.29500342,M,brainage/data/datasets/images/sub-IXI588/final/highres001_BrainExtractionBrain_flirt.nii.gz,0.0
-IXI/IOP,sub-IXI477,46.4257358,F,brainage/data/datasets/images/sub-IXI477/final/highres001_BrainExtractionBrain_flirt.nii.gz,0.0
-IXI/IOP,sub-IXI595,49.59616701,F,brainage/data/datasets/images/sub-IXI595/final/highres001_BrainExtractionBrain_flirt.nii.gz,0.0
-IXI/IOP,sub-IXI305,62.50513347,F,brainage/data/datasets/images/sub-IXI305/final/highres001_BrainExtractionBrain_flirt.nii.gz,0.0
-IXI/IOP,sub-IXI548,66.32991102,F,brainage/data/datasets/images/sub-IXI548/final/highres001_BrainExtractionBrain_flirt.nii.gz,0.0
-IXI/IOP,sub-IXI462,75.07734428,F,brainage/data/datasets/images/sub-IXI462/final/highres001_BrainExtractionBrain_flirt.nii.gz,0.0

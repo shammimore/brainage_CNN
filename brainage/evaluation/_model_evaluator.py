@@ -1,4 +1,4 @@
-"""Model performance evaluator."""
+"""Model evaluator."""
 
 # %% Internal package import
 
@@ -10,7 +10,7 @@ from brainage.evaluation.metrics import (MeanSquaredError, MeanAbsoluteError,
 
 class ModelEvaluator():
     """
-    Model performance evaluation class.
+    Model evaluator class.
 
     This class provides ...
 
@@ -22,7 +22,7 @@ class ModelEvaluator():
     Attributes
     ----------
     metrics : tuple
-        See `Parameters`.
+        See 'Parameters'.
 
     metrics_selection : tuple
         ...
@@ -44,7 +44,7 @@ class ModelEvaluator():
         # Get the attributes from the argument
         self.metrics = metrics
 
-        # Construct the metrics list to compute
+        # Construct the metrics list
         self.metrics_selection = self.select()
 
     def select(self):

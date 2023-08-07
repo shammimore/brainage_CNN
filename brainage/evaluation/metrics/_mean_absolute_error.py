@@ -1,4 +1,4 @@
-"""Mean absolute error computation."""
+"""Mean absolute error."""
 
 # %% External package import
 
@@ -9,7 +9,7 @@ from sklearn.metrics import mean_absolute_error
 
 class MeanAbsoluteError():
     """
-    Mean absolute error computation class.
+    Mean absolute error class.
 
     This class provides ...
 

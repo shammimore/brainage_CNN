@@ -1,4 +1,4 @@
-"""Checking functions to check inputs."""
+"""Checking functions."""
 
 # %% External package import
 
@@ -7,7 +7,7 @@ from os.path import exists
 # %% Function definitions
 
 
-def check_brain_age_predictor(
+def check_inputs(
         data_path,
         age_filter,
         image_dimensions,
@@ -15,6 +15,8 @@ def check_brain_age_predictor(
         learning_rate,
         number_of_epochs,
         batch_size,
+        early_stopping_rounds,
+        reduce_lr_on_plateau,
         train_all_layers,
         architecture,
         optimizer,

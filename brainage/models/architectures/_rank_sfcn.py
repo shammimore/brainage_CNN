@@ -1,4 +1,4 @@
-"""SFCN architecture."""
+"""Rank-Consistent SFCN architecture."""
 
 # %% External package import
 

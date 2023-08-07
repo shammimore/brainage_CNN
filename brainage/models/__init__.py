@@ -1,3 +1,5 @@
+"""Data model handling module."""
+
 from . import architectures
 from . import loss_functions
 from . import model_classes

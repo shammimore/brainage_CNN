@@ -7,8 +7,8 @@ from pathlib import Path
 
 # %% Internal package import
 
-from brainage.models.model_classes import (RankResnetModel, RankSFCNModel, 
-                                            SFCNModel)
+from brainage.models.model_classes import (RankResnetModel, RankSFCNModel,
+                                           SFCNModel)
 from brainage.tools import random_seed
 
 # %% Class definition
@@ -37,6 +37,12 @@ class DataModelPredictor():
     batch_size : int
         ...
 
+    early_stopping_rounds : int
+        ...
+
+    reduce_lr_on_plateau : dict
+        ...
+
     train_all_layers : bool
         ...
 
@@ -49,13 +55,16 @@ class DataModelPredictor():
     pretrained_weights : ...
         ...
 
+    save_label : string
+        ...
+
     Attributes
     ----------
     number_of_epochs : int
-        See `Parameters`.
+        See 'Parameters'.
 
     batch_size : int
-        See `Parameters`.
+        See 'Parameters'.
 
     data_generator : ...
         ...
@@ -63,12 +72,14 @@ class DataModelPredictor():
     model : ...
         ...
 
+    save_path : ...
+        ...
+
     Methods
     -------
     - ``fit()`` : fit the prediction model;
     - ``tune_hyperparameters()`` : tune the model hyperparameters;
-    - ``predict(image)`` : predict the brain age from an image (or \
-        multiple images in parallel).
+    - ``predict(image)`` : predict the brain age value(s) from the image(s).
     """
 
     def __init__(
@@ -78,17 +89,22 @@ class DataModelPredictor():
             learning_rate,
             number_of_epochs,
             batch_size,
+            early_stopping_rounds,
+            reduce_lr_on_plateau,
             train_all_layers,
             architecture,
             optimizer,
             pretrained_weights,
             save_label):
 
-        print('\n\t Initializing the data model predictor ...')
-        print('\t\t >>> Learning rate: {} - Number of epochs: {} - '
-              'Batch size: {} - Train all layers: {} - Architecture: "{}" - '
-              'Optimizer: "{}" - Pretrained weights: "{}" <<<'
+        print("\n\t Initializing the data model predictor ...")
+        print("\t\t >>> Learning rate: {} - Number of epochs: {} - "
+              "Batch size: {} - Early stopping rounds: {} - "
+              "Reduce LR on plateau: {} - Train all layers: {} - "
+              "Architecture: '{}' - Optimizer: '{}' - "
+              "Pretrained weights: '{}' <<<"
               .format(learning_rate, number_of_epochs, batch_size,
+                      early_stopping_rounds, reduce_lr_on_plateau,
                       train_all_layers, architecture, optimizer,
                       pretrained_weights))
 
@@ -102,6 +118,8 @@ class DataModelPredictor():
         # Get the attributes from the arguments
         self.number_of_epochs = number_of_epochs
         self.batch_size = batch_size
+        self.early_stopping_rounds = early_stopping_rounds
+        self.reduce_lr_on_plateau = reduce_lr_on_plateau
 
         try:
 
@@ -118,7 +136,7 @@ class DataModelPredictor():
 
         # Initialize the prediction model
         architectures = {'rank_resnet3d': RankResnetModel,
-                        'rank_sfcn': RankSFCNModel,
+                         'rank_sfcn': RankSFCNModel,
                          'sfcn': SFCNModel}
         self.model = architectures[architecture](pretrained_weights,
                                                  comp_device,
@@ -131,13 +149,13 @@ class DataModelPredictor():
             self.model.freeze_inner_layers()
 
         # Check if the age filter is greater than the default range
-        if data_loader.age_filter != [42, 82] or architecture == 'rank_sfcn'\
-            or architecture == 'rank_resnet3d':
+        if (data_loader.age_filter != [42, 82]
+                or architecture in ('rank_sfcn', 'rank_resnet3d')):
 
             # Get the age filter
             age_filter = data_loader.age_filter
 
-            # Adapt the output layer to cover the new age range
+            # Adapt the output layer to cover the modified age range
             self.model.adapt_output_layer(age_filter[1]-age_filter[0])
 
         # Set the optimizer for the model fitting
@@ -146,10 +164,10 @@ class DataModelPredictor():
         # Send the model to the device (CPU or GPU)
         self.model.to(comp_device)
 
-        # Create a directory using save_label in results folder
-        save_path = Path('./brainage/models/exports/results', save_label)
-        save_path.mkdir(parents=True, exist_ok=True)
-        self.save_path = save_path
+        # Create a directory to save the results in a folder
+        self.save_path = Path('./brainage/models/exports/model_results',
+                              save_label)
+        self.save_path.mkdir(parents=True, exist_ok=True)
 
     def fit(self):
         """Fit the prediction model."""
@@ -160,9 +178,10 @@ class DataModelPredictor():
                                  "'data_path' argument, otherwise model "
                                  "fitting is not possible.")
 
-        # Call the model's specific fit method
+        # Call the specific fit method of the model
         self.model.fit(self.data_generator, self.number_of_epochs,
-                       self.batch_size, self.save_path)
+                       self.batch_size, self.early_stopping_rounds,
+                       self.reduce_lr_on_plateau, self.save_path)
 
     def tune_hyperparameters(self):
         """Tune the model hyperparameters."""
@@ -171,6 +190,16 @@ class DataModelPredictor():
     def predict(
             self,
             image):
-        """Predict the brain age from an image (or multiple images in \
-            parallel)."""
+        """
+        Predict the brain age value(s) from the image(s).
+
+        Parameters
+        ----------
+        image : ...
+            ...
+
+        Returns
+        -------
+        ...
+        """
         return self.model.forward(image)

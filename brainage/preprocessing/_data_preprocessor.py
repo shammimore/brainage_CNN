@@ -31,7 +31,7 @@ class DataPreprocessor():
         ...
 
     steps : tuple
-        See `Parameters`.
+        See 'Parameters'.
 
     pipeline : tuple
         ...

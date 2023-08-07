@@ -1,7 +1,9 @@
-from ._sfcn_model import SFCNModel
-from ._rank_sfcn_model import RankSFCNModel
-from ._rank_resnet_model import RankResnetModel
+"""Data models module."""
 
-__all__ = ['SFCNModel',
+from ._rank_resnet_model import RankResnetModel
+from ._rank_sfcn_model import RankSFCNModel
+from ._sfcn_model import SFCNModel
+
+__all__ = ['RankResnetModel',
            'RankSFCNModel',
-           'RankResnetModel']
+           'SFCNModel']

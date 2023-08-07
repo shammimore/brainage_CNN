@@ -1,6 +1,7 @@
-"""."""
-from ._kld import KLDivLoss
-from ._bce import BCELoss
+"""Loss functions module."""
 
-__all__ = ['KLDivLoss',
-           'BCELoss']
+from ._bce import BCELoss
+from ._kld import KLDivLoss
+
+__all__ = ['BCELoss',
+           'KLDivLoss']

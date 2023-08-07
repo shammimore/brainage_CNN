@@ -1,4 +1,4 @@
-"""ResNet3D architecture."""
+"""Rank-Consistent ResNet3D architecture."""
 
 # %% External package import
 
