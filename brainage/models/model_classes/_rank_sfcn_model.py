@@ -6,7 +6,7 @@ from itertools import tee
 from numpy import expand_dims, Inf, vstack
 from pathlib import Path
 from torch import as_tensor, device, float32, load, no_grad, save
-from torch import zeros
+from torch import greater, where, zeros
 from torch.nn import DataParallel, Linear, Module, Parameter
 from torch.optim import Adam, SGD
 
@@ -240,9 +240,18 @@ class RankSFCNModel(Module):
             # Perform a single parameter update
             self.optimizer.step()
 
-            # Clamp the weights of the output layer for non-negativity
-            self.architecture.module.linear_layer.weight.data = (
-                self.architecture.module.linear_layer.weight.data.clamp(min=0))
+            # Get the weights from the linear layer
+            data = self.architecture.module.linear_layer.weight.data
+
+            # Generate a boolean vector to check for negative values
+            condition = greater(-data, 0)
+
+            # Get the exponentialized weights tensor
+            exp_data = data.exp()
+
+            # Replace negative weights with the exponentialized value
+            self.architecture.module.linear_layer.weight.data = where(
+                condition, exp_data, data)
 
             return training_loss, model_output
 
