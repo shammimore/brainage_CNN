@@ -4,7 +4,9 @@
 
 from nibabel import load
 from numpy import vstack
+from pathlib import Path
 from time import gmtime, time, strftime
+from torch import cuda, device
 
 # %% Internal package import
 
@@ -211,6 +213,11 @@ class BrainAgePredictor():
 
     def fit(self):
         """Fit the prediction model."""
+        if self.data_loader.sets['train'] is None:
+            raise ValueError(
+                "\t Model fitting is not possible - please provide some "
+                "training data ...")
+
         # Start the runtime recording
         fit_start = time()
 
@@ -310,3 +317,17 @@ class BrainAgePredictor():
 
         # Open 'name' plot with the visualizer
         self.visualizer.open_plot(name)
+
+    def update_parameters(
+            self,
+            trained_parameters):
+        """Update the parameters of the model."""
+        # Get the device
+        comp_device = device('cuda:0' if cuda.is_available() else 'cpu')
+
+        # Load the parameters
+        self.data_model_predictor.model.architecture.load_state_dict(
+            load(Path(trained_parameters), map_location=device(comp_device)))
+
+        # Send the model to the device
+        self.data_model_predictor.model.to(comp_device)
