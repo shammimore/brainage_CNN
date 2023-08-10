@@ -17,7 +17,7 @@ bap = BrainAgePredictor(
     early_stopping_rounds=20,
     reduce_lr_on_plateau={'rounds': 10, 'factor': 0.5},
     train_all_layers=False,
-    architecture='sfcn',
+    architecture='rank_sfcn',
     optimizer='adam',
     pretrained_weights='./brainage/models/exports/pretrained_weights/'
     'run_20190719_00_epoch_best_mae.p',

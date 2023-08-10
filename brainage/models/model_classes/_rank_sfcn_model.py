@@ -6,6 +6,8 @@ from itertools import tee
 from numpy import expand_dims, Inf, vstack
 from pathlib import Path
 from torch import as_tensor, device, float32, load, no_grad, save
+from torch import sum as torch_sum
+from torch import abs as torch_abs
 from torch import zeros
 from torch.nn import DataParallel, Linear, Module, Parameter
 from torch.optim import Adam, SGD
@@ -254,8 +256,8 @@ class RankSFCNModel(Module):
             #     condition, exp_data, data)
 
             # Clamp the weights of the output layer for non-negativity
-            self.architecture.module.classifier.weight.data = (
-                self.architecture.module.classifier.weight.data.clamp(min=0))
+            self.architecture.module.linear_layer.weight.data = (
+                self.architecture.module.linear_layer.weight.data.clamp(min=0))
 
             return training_loss, model_output
 
@@ -280,7 +282,7 @@ class RankSFCNModel(Module):
         data_generators = tee(data, number_of_epochs*2)
 
         # Initialize the lists for the training/validation loss per epoch
-        train_loss_per_epoch, val_loss_per_epoch = [], []
+        train_loss_per_epoch, val_loss_per_epoch, mae_per_epoch = [], [], []
 
         # Initialize the minimum validation loss
         min_val_loss = Inf
@@ -291,7 +293,8 @@ class RankSFCNModel(Module):
             print('\n\t ------ Epoch %d ------\n' % (epoch+1))
 
             # Initialize the training and validation loss to zero
-            train_loss_over_batches, val_loss_over_batches = 0, 0
+            (train_loss_over_batches, val_loss_over_batches,
+             mae_over_batches) = 0, 0, 0
 
             # Get training and validation data by filtering the fold number
             training_data = (el for el in data_generators[epoch*2]
@@ -370,6 +373,15 @@ class RankSFCNModel(Module):
                     # Get the validation prediction
                     validation_prediction = get_output(model_output)
 
+                    # Compute the MAE
+                    prediction = as_tensor(validation_prediction,
+                                           dtype=float32,
+                                           device=self.comp_device)
+                    ground_truth = as_tensor(labels, dtype=float32,
+                                             device=self.comp_device)
+                    mae_over_batches += torch_sum(torch_abs(
+                        prediction - ground_truth))
+
                     # Print a message after the validation epoch
                     print('\t Validation - Batch: {} - Loss: {} - '
                           'Prediction: {} - Ground Truth: {}'
@@ -380,18 +392,22 @@ class RankSFCNModel(Module):
             val_loss = val_loss_over_batches/counter
             val_loss_per_epoch.append(val_loss)
 
+            # Append the MAE for the epoch
+            mae_over_batches = mae_over_batches/counter
+            mae_per_epoch.append(mae_over_batches)
+
             # Check if the validation loss is reduced
-            if val_loss < min_val_loss:
+            if mae_over_batches < min_val_loss:
                 print('\t Saving model - current loss: {}, previous \
                       minimum loss: {}'
-                      .format(val_loss, min_val_loss))
+                      .format(mae_over_batches, min_val_loss))
 
                 # Save the model state dictionary
                 save(self.architecture.state_dict(),
                      Path(save_path, 'state_dict.pt'))
 
                 # Update the current minimum validation loss
-                min_val_loss = val_loss
+                min_val_loss = mae_over_batches
 
                 # (Re-)Set the counters for early stopping and LR reduction
                 early_stopping_counter = 0
