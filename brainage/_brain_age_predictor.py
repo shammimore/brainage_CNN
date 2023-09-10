@@ -2,11 +2,11 @@
 
 # %% External package import
 
-from nibabel import load
+from nibabel import load as image_load
 from numpy import vstack
 from pathlib import Path
 from time import gmtime, time, strftime
-from torch import cuda, device
+from torch import cuda, device, load
 
 # %% Internal package import
 
@@ -250,7 +250,7 @@ class BrainAgePredictor():
         if isinstance(image_path, str):
 
             # Load the image from the path
-            image = load(image_path)
+            image = image_load(image_path)
 
             # Preprocess the image
             preprocessed_image = self.data_preprocessor.run_pipeline(image)
@@ -265,7 +265,7 @@ class BrainAgePredictor():
         elif isinstance(image_path, (tuple, list)):
 
             # Load all images from the paths
-            images = (load(path) for path in image_path)
+            images = (image_load(path) for path in image_path)
 
             # Preprocess all images
             preprocessed_images = (self.data_preprocessor.run_pipeline(image)
@@ -324,10 +324,11 @@ class BrainAgePredictor():
         """Update the parameters of the model."""
         # Get the device
         comp_device = device('cuda:0' if cuda.is_available() else 'cpu')
+        print(comp_device)
+        print(trained_parameters)
 
         # Load the parameters
-        self.data_model_predictor.model.architecture.load_state_dict(
-            load(Path(trained_parameters), map_location=device(comp_device)))
+        self.data_model_predictor.model.architecture.load_state_dict(load(Path(trained_parameters), map_location=device(comp_device)))
 
         # Send the model to the device
         self.data_model_predictor.model.to(comp_device)
