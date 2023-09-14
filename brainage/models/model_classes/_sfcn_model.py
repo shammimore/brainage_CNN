@@ -99,6 +99,10 @@ class SFCNModel(Module):
         # Set the gradient calculation for the output layer to True
         for param in self.architecture.module.classifier.conv_6.parameters():
             param.requires_grad = True
+        
+        # Set the gradient calculation for one of the inner layer to True
+        # for param in self.architecture.module.feature_extractor.conv_5.parameters():
+        #     param.requires_grad = True
 
     def adapt_output_layer(
             self,
