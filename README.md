@@ -9,6 +9,12 @@ The code by default uses the age range [42, 82] and trains the outermost layer o
 
 We currently use the whole T1 image.
 
+We have implemented Rank-consistent version of SFCN 
+(inspired from paper:  Rank consistent ordinal regression for neural networks with application to age estimation
+https://www.sciencedirect.com/science/article/pii/S016786552030413X)
+
+Both the architectures can be used and fine-tuned.
+
 
 # Installation
 **Install following python packages:**
@@ -27,4 +33,6 @@ pip install -r requirements.txt
 
 # Example
 Look at brainage.py to get started.
+
+
 
